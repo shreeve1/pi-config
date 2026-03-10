@@ -1,6 +1,6 @@
 ---
 name: pi-dev-validate
-description: Validate implementation plans against the codebase with smart targeted checks—run before executing plans to catch breaking changes, database risks, and other issues
+description: Use when validating an implementation plan against the current codebase before execution, especially to catch infeasible steps, missing prerequisites, breaking changes, database risks, or poor plan-to-repo fit
 ---
 
 # Validate Plan
@@ -11,7 +11,7 @@ Do NOT use this skill for: creating plans from scratch, executing/implementing p
 
 ---
 
-Intelligently analyze an implementation plan to determine which validations are needed, then run only relevant checks against the existing codebase. Detects potential breaking changes, database risks, component impacts, dependency issues, and more. When issues are found, automatically rewrite risky steps with safer alternatives while preserving the original as reference.
+Intelligently analyze an implementation plan in two passes: first determine whether the plan is fundamentally feasible for the current codebase, then run only the validations that actually apply. Detects missing prerequisites, nonexistent file references, architecture mismatches, breaking changes, database risks, component impacts, dependency issues, and more. When issues are found, automatically rewrite risky steps with safer alternatives while preserving the original as reference.
 
 **Token Efficient**: Uses smart analysis to skip irrelevant validations, typically saving 50-75% of tokens compared to running all checks every time.
 
@@ -24,20 +24,23 @@ PLAN_DIRECTORIES: `specs/`, `artifacts/plans/`
 You MUST create a task for each of these items and complete them in order:
 1. **Select and parse plan** — locate plan file, parse structure, extract files to modify and code changes
 2. **Verify understanding** — use `ask_user` to confirm plan intent with 2-3 focused questions about goals, constraints, and expected outcome
-3. **Baseline provenance preflight** — validate `Validation Commands` file references exist in the current workspace and detect cross-checkout/worktree baseline mismatches
-4. **Smart analysis** — spawn analysis subagent to analyze plan and determine required validations
-5. **Targeted validation** — spawn only relevant validation subagents in parallel based on analysis
-6. **Synthesize and rewrite** — collect subagent results, assess risks, rewrite risky steps with safer alternatives
-7. **Update plan if issues found** — add validation section and save updated plan ONLY if issues detected; otherwise report clean validation without modifying plan
+3. **Feasibility preflight** — verify the plan is implementable in this repo before spawning validation workers
+4. **Baseline provenance preflight** — validate `Validation Commands` file references exist in the current workspace and detect cross-checkout/worktree baseline mismatches
+5. **Smart analysis** — spawn analysis subagent to analyze plan and determine required validations
+6. **Targeted validation** — spawn only relevant validation subagents in parallel based on analysis
+7. **Synthesize and rewrite** — collect subagent results, assess risks, rewrite risky steps with safer alternatives
+8. **Update plan if issues found** — add validation section and save updated plan ONLY if issues detected; otherwise report clean validation without modifying plan
 
 ## Instructions
 
 - **VALIDATION ONLY**: Your goal is to analyze and improve an existing plan, not execute it.
 - If `PLAN_FILE` is provided, validate that specific plan.
 - If `PLAN_FILE` is omitted, use Plan Discovery Protocol to auto-discover the most recent plan from `PLAN_DIRECTORIES`.
-- **Smart Validation**: First analyze the plan to determine which validations are needed, then run only relevant checks.
+- **Feasibility First**: Before launching any validation workers, explicitly check whether the plan can realistically be implemented in this repo as written.
+- **Smart Validation**: Only after feasibility passes (or after feasibility issues are captured and the plan is rewritten) analyze which validations are needed, then run only relevant checks.
 - **Token Efficiency**: Skip validations that don't apply (e.g., don't check database safety for UI-only changes).
-- Always run Breaking Changes Analysis (baseline safety), conditionally run 0-6 additional targeted validations.
+- Always run a Feasibility Preflight before worker fan-out. After that, run Breaking Changes Analysis (baseline safety) and conditionally run 0-6 additional targeted validations.
+- Treat missing prerequisites, nonexistent referenced files, unsupported architectural assumptions, or multi-epic scope crammed into one plan as first-class validation issues even if no specific validator would otherwise catch them.
 - Use parallel subagents for the selected validations to maximize speed.
 - When rewriting risky steps, preserve the original step as a strikethrough comment for context.
 - Only modify the plan file if issues are found; otherwise report clean validation without changes.
@@ -86,6 +89,33 @@ You MUST create a task for each of these items and complete them in order:
    - If user selects clarifying options, incorporate their feedback into your understanding
    - Only proceed to risk analysis after confirmation
 
+### Phase 1.6: Feasibility Preflight
+
+3.25 **Check Whether the Plan Is Implementable Here**
+- Before spawning any validation worker, perform a direct feasibility pass against the current codebase.
+- Goal: answer `Can this plan realistically be executed in this repository as written, by this user, without hidden prerequisite work?`
+- Check at minimum:
+  1. **Referenced files exist or are clearly intended as new files** — if the plan says to edit/refactor/migrate a file that does not exist and the plan does not explicitly say it will be created, flag it.
+  2. **Dependencies and platforms exist or are added explicitly** — if the plan assumes a library/service/framework (for example Clerk, Stripe, Prisma, Docker, Terraform) verify evidence in the repo (`package.json`, lockfiles, config, imports, env examples, infrastructure files). If absent, the plan must explicitly include adding and integrating that prerequisite.
+  3. **Architecture assumptions are grounded** — if the plan refers to systems that do not appear to exist yet (billing portal, role system, background jobs, design system, API layer), flag the mismatch.
+  4. **Scope is execution-sized** — detect plans that bundle multiple major initiatives into one implementation pass. Mark these as feasibility warnings or critical issues when the plan is too broad to validate/build safely as one unit.
+  5. **Sequence is viable** — detect steps that depend on unfinished prerequisite work, or that validate/test features before the supporting implementation exists.
+- Output a structured feasibility result with:
+  - `status`: `feasible` | `feasible-with-risks` | `not-feasible`
+  - `critical_blockers`: list
+  - `missing_prerequisites`: list
+  - `scope_concerns`: list
+  - `recommended_action`: `continue` | `rewrite-plan-first` | `split-plan`
+- Deterministic severity guidance:
+  - **not-feasible / critical**: the plan relies on missing foundations, nonexistent edit targets, impossible sequencing, or major unsupported assumptions
+  - **feasible-with-risks / warning**: the plan is directionally possible but too broad, underspecified, or missing explicit prerequisite tasks
+  - **feasible / info**: prerequisites and sequence appear sound
+- If status is `not-feasible`, do NOT immediately fan out validation workers. First rewrite or annotate the plan so the blockers are visible, then stop and ask the user for confirmation before doing anything beyond feasibility reporting. Only continue if the user explicitly wants either: (a) a rewritten/split plan, or (b) a limited validation pass on a clearly identified feasible subset.
+- If status is `feasible-with-risks`, continue to worker selection but carry the feasibility findings into Risk Analysis and plan rewriting.
+- For `not-feasible` results, ask one plain-English confirmation question before any worker fan-out: `This plan appears to assume X and Y already exist, but I can't find them in the repo. Should I rewrite the plan to include those foundations first, or split this into smaller plans?`
+
+Add findings to Risk Analysis under `Critical Issues`, `Warnings`, or a new `Feasibility Findings` subsection.
+
 ### Phase 1.75: Baseline Provenance Preflight
 
 3.5 **Validate Validation Commands Against Workspace**
@@ -116,14 +146,18 @@ Add findings to Risk Analysis under either `Critical Issues` or `Warnings` as ap
 
 4. **Determine Required Validations**
 
+   Only do this after the Feasibility Preflight. The analysis subagent must receive the feasibility findings so it can avoid blindly validating impossible work.
+
    Spawn a single analysis subagent using `subagent` to analyze the plan and determine which validations are needed:
 
    ```
    Analyze this implementation plan to determine required validations.
 
    Plan: [plan content]
+   Feasibility Findings: [structured feasibility result]
 
    Instructions:
+   0. If feasibility status is `not-feasible`, do not assume the whole plan should proceed unchanged; recommend limiting validation to feasible portions and surface blockers prominently.
    1. Analyze the "Relevant Files" section for file patterns
    2. Scan "Step by Step Tasks" for types of changes being made
    3. Identify risk categories based on semantic understanding
@@ -139,6 +173,7 @@ Add findings to Risk Analysis under either `Critical Issues` or `Warnings` as ap
 
    Return structured output:
    {
+     "feasibility_status": "feasible-with-risks",
      "detected_changes": ["API", "Database"],
      "required_validations": [
        {"type": "breaking_changes", "reason": "...", "priority": "always"},
@@ -147,6 +182,7 @@ Add findings to Risk Analysis under either `Critical Issues` or `Warnings` as ap
      "skipped_validations": [
        {"type": "component_impact", "reason": "No UI changes detected"}
      ],
+     "do_not_run_yet": ["infrastructure_safety"],
      "estimated_agents": 2
    }
    ```
@@ -154,9 +190,11 @@ Add findings to Risk Analysis under either `Critical Issues` or `Warnings` as ap
    After analysis completes, report to user:
    ```
    📊 Validation Analysis
+   Feasibility: [status]
    Detected: [change types]
    Running: [N] validations: [list]
    Skipping: [N] irrelevant checks
+   Deferred due to feasibility blockers: [list or none]
    ```
 
 ### Phase 3: Targeted Parallel Validation
@@ -263,8 +301,8 @@ Use `subagent` with mode: parallel to launch only the required validation subage
 
 13. **Risk Assessment**
     - Categorize each finding by severity: `critical` | `warning` | `info`
-    - Critical: Will definitely break existing functionality
-    - Warning: May cause issues, needs attention
+    - Critical: Will definitely break existing functionality, or the plan is not realistically implementable as written
+    - Warning: May cause issues, needs attention, or should be split/resequenced before build
     - Info: Suggestion for improvement
 
 14. **Rewrite Risky Steps** (ONLY if issues found)
@@ -289,7 +327,11 @@ Use `subagent` with mode: parallel to launch only the required validation subage
     ```md
     ## Risk Analysis
 
+    Feasibility Status: [feasible | feasible-with-risks | not-feasible]
     Validations Run: [list of validation types executed]
+
+    ### Feasibility Findings
+    <missing prerequisites, architecture mismatches, scope concerns, or sequencing blockers>
 
     ### Critical Issues
     <list critical issues that were addressed>
@@ -346,6 +388,7 @@ After validation, provide one of two report formats:
 File: <path to updated plan>
 
 📊 Validation Summary:
+Feasibility: <feasible | feasible-with-risks | not-feasible>
 Validations Run: <N> (<list types>)
 Validations Skipped: <N> (<list types>)
 Baseline Provenance: <✓ clean | ⚠ mismatch | ? unknown>
@@ -372,6 +415,7 @@ The plan has been updated in place. Original risky steps preserved as strikethro
 File: <path to plan>
 
 📊 Validation Summary:
+Feasibility: <feasible | feasible-with-risks>
 Validations Run: <N> (<list types>)
 Validations Skipped: <N> (<list types>)
 Baseline Provenance: <✓ clean | ? unknown>
@@ -387,6 +431,7 @@ The plan is ready to build as-is. No modifications were made.
 
 - If no plans exist in either of the `PLAN_DIRECTORIES`: inform user and suggest creating a plan first
 - If selected plan file doesn't exist: report error and re-prompt for selection
+- If feasibility preflight finds the plan is not implementable as written: stop worker fan-out, rewrite/annotate the plan with blockers, and ask whether to split or resequence the plan before build execution
 - If subagent analysis fails: report which analysis failed and continue with available results
 - If validation command path extraction is ambiguous or partially fails: report which commands could not be parsed, mark provenance status as `unknown`, and continue with conservative warnings
 - If provenance comparison cannot run (not a git repo or no accessible sibling checkout/worktree): mark provenance as `unknown` and require explicit user confirmation before recommending build execution

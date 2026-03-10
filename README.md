@@ -118,7 +118,7 @@ If you use custom providers (Ollama, etc.), create `~/.pi/agent/models.json`:
                                │              │              │
                                ▼              ▼              ▼
                       ┌──────────────┐ ┌──────────────┐ ┌──────────┐
-                      │ pi-brainstorm│ │dev-investigate│ │ question │
+                      │ pi-brainstorm│ │dev-investigate│ │pi-question│
                       └──────┬───────┘ └──────┬───────┘ └────┬─────┘
                              │                │              │
                              ▼                ▼              ▼
@@ -164,7 +164,7 @@ The core development loop for features, refactors, and significant changes:
 
 Not everything needs the full workflow:
 
-1. **`question`** — Ask about your codebase: where something lives, how a feature works, what the structure looks like. Read-only exploration.
+1. **`pi-question`** — Ask about your codebase: where something lives, how a feature works, what the structure looks like. Read-only exploration.
 2. If the answer reveals a small fix, make it directly. If it's bigger than expected, loop into the dev workflow at **`pi-dev-plan`**.
 
 ### Design Workflow
@@ -202,6 +202,8 @@ This captures what you built, decisions made, and files changed — so you (or t
 | `pi-prime` | Load context for a new session by analyzing codebase + recent history |
 | `pi-restart` | Kill and restart all running servers |
 | `dev-prd` | Turn an idea into a product requirements document |
+| `pi-merge` | Finish a branch — merge, PR, or cleanup |
+| `pi-worktree` | Create isolated git worktrees for feature work |
 | `pi-create-skill` | Create or modify skills |
 
 ## Memory Management — `pi-mem`
