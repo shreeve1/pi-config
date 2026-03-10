@@ -15,15 +15,23 @@ Personal [pi](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agen
 
 Pi ships with four core tools (`read`, `write`, `edit`, `bash`) and everything else — subagents, plan mode, web search, TypeScript LSP — is added through extensions like the ones in this repo.
 
-### Token Efficiency vs Claude Code
+### How Pi Differs from Claude Code
 
-Pi uses significantly fewer tokens than Claude Code across the board:
+Pi and Claude Code use the same models, but the community consistently highlights these real differences:
 
-- **Skills eliminate discovery** — Claude Code burns tokens figuring out *how* to approach a task every time. Pi skills give the agent a structured playbook upfront, so it spends tokens on the work, not the process.
-- **Scoped subagents** — Instead of one massive conversation that grows with every task, pi dispatches subagents with isolated, minimal context. Each agent only sees what it needs.
-- **Auto-compaction** — The auto-compact extension summarizes conversation history when context grows large, keeping the working window lean instead of re-sending everything.
-- **Persistent memory over re-prompting** — With `/mem`, context from previous sessions is retrieved on demand rather than re-explained in every conversation. No more pasting the same background into every new chat.
-- **Minimal core** — Pi's base prompt is small (4 tools). Capabilities load only when needed via extensions and skills, unlike Claude Code which loads its full tool suite into every conversation.
+**Radical minimalism** — Pi's system prompt is ~200 tokens. Claude Code's is ~10,000+. Pi ships 4 tools (`read`, `write`, `edit`, `bash`). Claude Code ships 8+. Less baked-in means less token overhead on every single turn, and more of your context window available for actual work.
+
+**You own the agent** — Pi is open source (MIT). Extensions, skills, themes, the agent loop itself — it's all TypeScript you can read, modify, and version control. Claude Code is closed source. When it changes behavior in an update, you adapt. With pi, you pin what works.
+
+**Model freedom** — Pi works with any provider: Anthropic, OpenAI, Google, Mistral, Groq, OpenRouter, local models via Ollama — 300+ models out of the box. Claude Code prioritizes Anthropic models. Pi lets you pick the best model for the task and switch mid-conversation.
+
+**Progressive disclosure over upfront loading** — Skills load their full content only when triggered. MCP servers and Claude Code's built-in tools dump thousands of tokens into context on every session whether you need them or not. Pi's approach: if you're not using it, it's not in context.
+
+**Token efficiency in practice** — Users who switched [report their token limits lasting 5-10x longer](https://www.reddit.com/r/ClaudeCode/comments/1r11egp/why_i_switched_from_claude_code_to_pi_the_agent/) for the same volume of work. The combination of a minimal system prompt, on-demand skill loading, and scoped subagents with isolated context means dramatically less waste.
+
+**No guardrails by default** — Claude Code has 5 confirmation modes and permission gates designed for broad accessibility. Pi trusts you're an engineer who knows what you're doing. You add exactly the safety controls you want via extensions — nothing more, nothing less.
+
+**Full observability** — Every tool call, every reasoning step, every file the agent reads is visible. No abstraction layers hiding what's happening. When something goes wrong, you see exactly why.
 
 ## Installation
 
