@@ -1,10 +1,10 @@
 # Pi Config
 
-Personal [pi](https://github.com/nicholasgasior/pi-coding-agent) configuration — skills, extensions, agents, themes, and prompts.
+Personal [pi](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent) configuration — skills, extensions, agents, themes, and prompts.
 
 ## Why Use Pi?
 
-[Pi](https://github.com/badlogic/pi-mono) is a minimal terminal coding agent that adapts to your workflows instead of forcing you into its own. Unlike other AI coding tools, pi is designed to be extended — not forked.
+[Pi](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent) is a minimal terminal coding agent that adapts to your workflows instead of forcing you into its own. Unlike other AI coding tools, pi is designed to be extended — not forked.
 
 - **Extensible by design** — Add capabilities through TypeScript extensions, skills, prompt templates, and themes. No need to modify internals.
 - **Skills as workflows** — Skills are structured instructions that guide the agent through multi-step processes (brainstorming → planning → building → testing). This repo is a full skill library.
@@ -14,6 +14,16 @@ Personal [pi](https://github.com/nicholasgasior/pi-coding-agent) configuration �
 - **Terminal native** — Runs in your terminal. Four modes: interactive, print/JSON, RPC, and an SDK for embedding.
 
 Pi ships with four core tools (`read`, `write`, `edit`, `bash`) and everything else — subagents, plan mode, web search, TypeScript LSP — is added through extensions like the ones in this repo.
+
+### Token Efficiency vs Claude Code
+
+Pi uses significantly fewer tokens than Claude Code across the board:
+
+- **Skills eliminate discovery** — Claude Code burns tokens figuring out *how* to approach a task every time. Pi skills give the agent a structured playbook upfront, so it spends tokens on the work, not the process.
+- **Scoped subagents** — Instead of one massive conversation that grows with every task, pi dispatches subagents with isolated, minimal context. Each agent only sees what it needs.
+- **Auto-compaction** — The auto-compact extension summarizes conversation history when context grows large, keeping the working window lean instead of re-sending everything.
+- **Persistent memory over re-prompting** — With `/mem`, context from previous sessions is retrieved on demand rather than re-explained in every conversation. No more pasting the same background into every new chat.
+- **Minimal core** — Pi's base prompt is small (4 tools). Capabilities load only when needed via extensions and skills, unlike Claude Code which loads its full tool suite into every conversation.
 
 ## Installation
 
