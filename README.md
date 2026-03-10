@@ -184,13 +184,13 @@ For UI work — exploring visual directions before committing to code:
 Once your dev workflow finishes (build + test pass), save the session to project memory:
 
 ```
-/mem save
+/mem save project
 ```
 
 This captures what you built, decisions made, and files changed — so you (or the agent) can recall it in future sessions. Add a description for easier searching later:
 
 ```
-/mem save Implemented auth refactor with JWT token rotation
+/mem save project Implemented auth refactor with JWT token rotation
 ```
 
 ### Other Useful Skills
