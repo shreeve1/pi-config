@@ -2,12 +2,18 @@
 
 Personal [pi](https://github.com/nicholasgasior/pi-coding-agent) configuration — skills, extensions, agents, themes, and prompts.
 
-## Prerequisites
+## Why Use Pi?
 
-- **Node.js** ≥ 20
-- **pi** installed globally: `npm i -g @mariozechner/pi-coding-agent`
-- **Python 3** (optional, for memory CLI scripts)
-- API keys for your preferred providers (Anthropic, OpenAI, etc.)
+[Pi](https://github.com/badlogic/pi-mono) is a minimal terminal coding agent that adapts to your workflows instead of forcing you into its own. Unlike other AI coding tools, pi is designed to be extended — not forked.
+
+- **Extensible by design** — Add capabilities through TypeScript extensions, skills, prompt templates, and themes. No need to modify internals.
+- **Skills as workflows** — Skills are structured instructions that guide the agent through multi-step processes (brainstorming → planning → building → testing). This repo is a full skill library.
+- **Persistent memory** — Save sessions, checkpoint mid-task, and resume later. Build up cross-project learnings over time.
+- **Parallel subagents** — Dispatch independent tasks to run concurrently, with progress tracking.
+- **Provider flexible** — Works with Anthropic, OpenAI, Google, Mistral, Groq, OpenRouter, local models via Ollama, and many more. Use subscriptions or API keys.
+- **Terminal native** — Runs in your terminal. Four modes: interactive, print/JSON, RPC, and an SDK for embedding.
+
+Pi ships with four core tools (`read`, `write`, `edit`, `bash`) and everything else — subagents, plan mode, web search, TypeScript LSP — is added through extensions like the ones in this repo.
 
 ## Installation
 
