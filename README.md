@@ -165,6 +165,81 @@ For UI work — exploring visual directions before committing to code:
 | `dev-prd` | Turn an idea into a product requirements document |
 | `pi-create-skill` | Create or modify skills |
 
+## Memory Management — `pi-mem`
+
+Pi-mem gives your agent persistent memory across sessions — project-scoped and global. Use it to save work, resume later, and build up cross-project learnings.
+
+```
+                    ┌──────────────────────────────────┐
+                    │      During a session...         │
+                    └──────┬──────────────┬────────────┘
+                           │              │
+                    Need to pause?   Learned something
+                    Mid-task?        cross-project?
+                           │              │
+                           ▼              ▼
+                    ┌─────────────┐ ┌─────────────┐
+                    │ /mem        │ │ /mem global  │
+                    │ checkpoint  │ │ <learning>   │
+                    └──────┬──────┘ └──────┬──────┘
+                           │               │
+                           ▼               ▼
+                    Saves resume      Saves to global
+                    context + links   memory with
+                    to plan file      category & tags
+                           │
+                           │
+                    ┌──────┴──────────────────────────┐
+                    │      Later / New session...      │
+                    └──────┬──────────────┬────────────┘
+                           │              │
+                           ▼              ▼
+                    ┌─────────────┐ ┌─────────────┐
+                    │ /mem plan   │ │ /mem search  │
+                    │ <plan.md>   │ │ "<query>"    │
+                    └──────┬──────┘ └──────┬──────┘
+                           │               │
+                           ▼               ▼
+                    Resume exactly    Find past sessions
+                    where you         and learnings
+                    left off          across projects
+                           │
+                           ▼
+                    ┌──────────────────────────────────┐
+                    │     Periodically: /mem cleanup    │
+                    │     Consolidate or prune old      │
+                    │     entries (always confirms)     │
+                    └──────────────────────────────────┘
+```
+
+### Commands
+
+| Command | What it does |
+|---|---|
+| `/mem` | Browse recent project sessions and global learnings |
+| `/mem search "query"` | Full-text search across all memory |
+| `/mem save` | Save current session to project memory |
+| `/mem save <description>` | Save with a specific description |
+| `/mem checkpoint` | Save mid-session snapshot with resume context, linked to a plan |
+| `/mem global <learning>` | Save a cross-project learning (prompts for category & tags) |
+| `/mem plan path/to/plan.md` | Resume work from a plan file's checkpoint history |
+| `/mem cleanup` | Consolidate or prune old entries (default: 7 days) |
+| `/mem cleanup N` | Cleanup entries older than N days |
+
+### When to Use What
+
+- **`/mem save`** — End of a session. Captures what you did so you can find it later.
+- **`/mem checkpoint`** — Mid-task, need to stop. Saves structured resume context (goal, done, in-progress, next steps, blockers) and links to your plan file so you can pick up exactly where you left off.
+- **`/mem global`** — You discovered a pattern, preference, or lesson that applies beyond the current project. Saved with category and tags for cross-project search.
+- **`/mem plan`** — Starting a new session on an existing plan. Loads the plan file and any linked checkpoints so the agent has full context.
+- **`/mem search`** — "Did I solve this before?" Search across all saved sessions and learnings.
+- **`/mem cleanup`** — Memory getting cluttered. Review old entries, consolidate related ones, or delete with confirmation.
+
+### Storage
+
+- **Project memory**: `~/.pi/data/memory/projects/{hash}-{name}/memory.db` — one SQLite DB per project
+- **Global memory**: `~/.pi/data/memory/global/memory.db` — shared across all projects
+
 ## What's Included
 
 | Directory | Contents |
