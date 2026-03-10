@@ -6,14 +6,11 @@ Personal [pi](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agen
 
 [Pi](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent) is a minimal terminal coding agent that adapts to your workflows instead of forcing you into its own. Unlike other AI coding tools, pi is designed to be extended — not forked.
 
-- **Extensible by design** — Add capabilities through TypeScript extensions, skills, prompt templates, and themes. No need to modify internals.
-- **Skills as workflows** — Skills are structured instructions that guide the agent through multi-step processes (brainstorming → planning → building → testing). This repo is a full skill library.
-- **Persistent memory** — Save sessions, checkpoint mid-task, and resume later. Build up cross-project learnings over time.
-- **Parallel subagents** — Dispatch independent tasks to run concurrently, with progress tracking.
-- **Provider flexible** — Works with Anthropic, OpenAI, Google, Mistral, Groq, OpenRouter, local models via Ollama, and many more. Use subscriptions or API keys.
-- **Terminal native** — Runs in your terminal. Four modes: interactive, print/JSON, RPC, and an SDK for embedding.
-
-Pi ships with four core tools (`read`, `write`, `edit`, `bash`) and everything else — subagents, plan mode, web search, TypeScript LSP — is added through extensions like the ones in this repo.
+- **Open source (MIT)** — Read, modify, and version control every part of the agent: the loop, the prompt, the tools. Pin what works. No surprise behavior changes from upstream updates.
+- **~200 token system prompt** — Pi's core is radically minimal. Four tools (`read`, `write`, `edit`, `bash`). Everything else loads on demand, not upfront — so your context window is spent on work, not framework overhead.
+- **Extensible, not opinionated** — Add capabilities through TypeScript extensions, skills, and themes. Build exactly the agent you need instead of working around decisions someone else made for you.
+- **300+ models, any provider** — Anthropic, OpenAI, Google, Mistral, Groq, OpenRouter, Ollama, and more. Switch mid-conversation. Pick the best model for the task, not the one your tool vendor prefers.
+- **Skills as workflows** — Skills are structured instructions that guide the agent through multi-step processes (brainstorming → planning → building → testing). They load only when triggered — no token cost when unused. This repo is a full skill library.
 
 ### How Pi Differs from Claude Code
 
