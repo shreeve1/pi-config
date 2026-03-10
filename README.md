@@ -102,6 +102,14 @@ Default settings in `agent/settings.json`:
 
 Edit `~/.pi/agent/settings.json` to change defaults.
 
+## Quick Setup via AI Agent
+
+Already have pi running? Paste this prompt into your pi session and let the agent do the rest:
+
+```
+Clone https://github.com/shreeve1/pi-config.git into ~/.pi (back up existing first), run npm install in agent/, agent/extensions/typescript-lsp/, and agent/extensions/web-fetch/, then create agent/auth.json with my API keys — ask me for each key I want to add.
+```
+
 ## Updating
 
 ```bash
