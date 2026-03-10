@@ -18,6 +18,9 @@ agent/nathan-sessions-registry.json
 # Dependencies
 node_modules/
 
+# Archive
+1-archive/
+
 # Submodules managed separately
 superpowers/
 
