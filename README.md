@@ -151,6 +151,20 @@ For UI work — exploring visual directions before committing to code:
 3. **Iterate** — Refine based on review feedback, then loop back to `ui-review` until satisfied.
 4. **Build** — Once a direction is chosen, feed it into **`pi-dev-plan`** → **`pi-dev-build`** to implement.
 
+### After Completing a Plan
+
+Once your dev workflow finishes (build + test pass), save the session to project memory:
+
+```
+/mem save
+```
+
+This captures what you built, decisions made, and files changed — so you (or the agent) can recall it in future sessions. Add a description for easier searching later:
+
+```
+/mem save Implemented auth refactor with JWT token rotation
+```
+
 ### Other Useful Skills
 
 | Skill | Use for |
