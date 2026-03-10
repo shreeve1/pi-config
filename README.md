@@ -4,6 +4,8 @@ Personal [pi](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agen
 
 ## Why Use Pi?
 
+<img width="1454" height="342" alt="image" src="https://github.com/user-attachments/assets/313a51ee-268e-45ad-be91-85a64e8d2cb3" />
+
 [Pi](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent) is a minimal terminal coding agent that adapts to your workflows instead of forcing you into its own. Unlike other AI coding tools, pi is designed to be extended — not forked.
 
 - **Open source (MIT)** — Read, modify, and version control every part of the agent: the loop, the prompt, the tools. Pin what works. No surprise behavior changes from upstream updates.
