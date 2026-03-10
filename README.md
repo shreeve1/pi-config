@@ -34,11 +34,15 @@ Pi and Claude Code use the same models, but the community consistently highlight
 
 ### Quick Setup via AI Agent
 
-Already have pi running? Paste this prompt into your pi session and let the agent do the rest:
+Install Pi: `npm install -g @mariozechner/pi-coding-agent`
+
+Paste this prompt into your pi session and let the agent do the rest:
 
 ```
 Clone https://github.com/shreeve1/pi-config.git into ~/.pi (back up existing first), run npm install in agent/, agent/extensions/typescript-lsp/, and agent/extensions/web-fetch/, then create agent/auth.json with my API keys — ask me for each key I want to add.
 ```
+
+## Manual Install
 
 ### 1. Clone into `~/.pi`
 

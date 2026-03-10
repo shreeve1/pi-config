@@ -11,8 +11,8 @@ Use this skill when the user wants to carry out a written implementation plan, e
 
 ## Variables
 
-- `PATH_TO_PLAN` — path to a specific plan file, if provided
-- `PLAN_DIRECTORIES` — `artifacts/plans/`, `specs/`
+- `PATH_TO_PLAN` - path to a specific plan file, if provided
+- `PLAN_DIRECTORIES` - `artifacts/plans/`, `specs/`
 
 ---
 
@@ -34,7 +34,7 @@ The goal is not maximum parallelism. The goal is safe, dependency-aware progress
 
 ---
 
-## Phase 1 — Discover the Plan
+## Phase 1 - Discover the Plan
 
 If the user provided a specific plan path, use it as `PATH_TO_PLAN`.
 
@@ -49,56 +49,36 @@ Once confirmed, use `read` to inspect the selected plan for context.
 
 ---
 
-## Phase 2 — Establish the Execution Workspace
+## Phase 2 - Establish the Execution Workspace
 
 Before implementation begins, decide whether work should continue in the current checkout or in a git worktree.
 
-Use `bash` to inspect:
-- whether the repository is a git repo
-- the current branch name
-- the repository top-level path
-- whether the current directory is already a linked worktree
-- whether `.worktrees/` or `worktrees/` already exists
-- existing local worktrees and branch names so you do not collide with an already-active branch
+### Decision: worktree or in-place?
 
-Default policy:
-- if already inside a non-primary worktree, continue there
-- if on `main`, `master`, or another shared branch, prefer a git worktree
-- if the upcoming wave includes multi-file implementation work, prefer a git worktree unless the user explicitly wants in-place changes
-- if the user already provided a feature branch or workspace path, honor it
-- if the repo is not a git repository, skip worktree setup cleanly and report that execution will happen in-place
+Work in-place if ANY of these are true:
+- not a git repository
+- already inside a non-primary linked worktree (continue there)
+- the user explicitly requested in-place changes
 
-Directory selection priority:
-1. existing `.worktrees/`
-2. existing `worktrees/`
-3. any documented preference in `AGENTS.md`
-4. ask the user whether to use a project-local `.worktrees/` directory or the global location `~/.pi/worktrees/<project-name>/`
+Prefer a worktree if:
+- on `main`, `master`, or another shared/protected branch
+- the plan involves multi-file implementation work
+- the user provided a feature branch name
 
-Branch naming rules:
-- if the user supplied a branch name, use it
-- otherwise derive a short kebab-case name from the plan topic or filename
-- prefer prefixes that describe intent, such as `feat/`, `fix/`, `refactor/`, or `chore/`, when the plan makes that obvious
-- strip spaces and punctuation that make shell usage awkward
-- if the derived branch already exists, ask whether to reuse it in an existing worktree or create a distinct suffix such as `-2`
+### Creating the worktree
 
-For project-local worktree directories, verify with `bash` that the directory is ignored by git before creating a worktree. Prefer an explicit check such as `git check-ignore .worktrees` or `git check-ignore worktrees`.
+**Invoke the `pi-worktree` skill** to handle all worktree setup. Pass it:
+- the desired branch name (derived from plan topic if not user-supplied, kebab-case, with `feat/`/`fix/`/`refactor/`/`chore/` prefix when obvious)
+- the plan's validation commands for baseline checks
 
-If the directory is not ignored:
-- inspect `.gitignore` with `read`
-- add the missing ignore entry with `edit`
-- tell the user exactly what line was added
-- continue only after the ignore rule is in place
+The `pi-worktree` skill handles directory selection, .gitignore safety, branch conflicts, creation, and bootstrap automatically. It returns the worktree path and branch name.
 
-When a worktree is needed, use `bash` to:
-- derive a branch name using the rules above if the user did not provide one
-- resolve the full path, either `<repo>/.worktrees/<branch>` or `~/.pi/worktrees/<project-name>/<branch>`
-- create the worktree with `git worktree add <path> -b <branch>`
-- capture the resulting path for all subsequent `subagent` calls that support `cwd`
+Capture the resulting path for all subsequent `subagent` calls that support `cwd`.
 
-After creation, run only the lightest sensible bootstrap for the repo in that worktree, such as dependency install or a targeted baseline command already documented by the project.
+### Baseline verification
 
-Baseline command selection policy:
-- Prefer commands from the selected plan's `Validation Commands`
+After worktree creation:
+- Prefer validation commands from the plan's `Validation Commands` section
 - Before running each baseline command, verify referenced test/file paths exist in the execution workspace
 - If a referenced path is missing, run Phase 2.5 provenance checks before declaring baseline failure
 
@@ -108,16 +88,9 @@ Baseline failure policy:
 - ask the user whether to stop and investigate, continue despite the dirty baseline, or switch back to planning/validation
 - do not silently proceed past a failing baseline
 
-Useful command patterns:
-- `git rev-parse --is-inside-work-tree && git rev-parse --show-toplevel`
-- `git branch --show-current`
-- `git worktree list --porcelain`
-- `git check-ignore .worktrees`
-- `git worktree add <path> -b <branch>`
-
 Report the selected execution path, branch name, and baseline status clearly before moving on.
 
-### Phase 2.5 — Preflight Baseline Provenance (required)
+### Phase 2.5 - Preflight Baseline Provenance (required)
 
 Before executing tasks, verify the selected workspace contains the plan's expected baseline files/tests.
 
@@ -131,9 +104,9 @@ Before executing tasks, verify the selected workspace contains the plan's expect
    - `Copy prerequisite files into worktree` (explicit, scoped)
 5. Do not start wave execution until prerequisite baseline is resolved.
 
-This prevents false baseline failures like “No test files found” caused by worktrees starting from committed history only.
+This prevents false baseline failures like "No test files found" caused by worktrees starting from committed history only.
 
-## Phase 3 — Load Plan Progress
+## Phase 3 - Load Plan Progress
 
 Use the plan tools as the source of truth for execution state when available.
 
@@ -167,7 +140,7 @@ If the plan file and plan tool state materially disagree, stop and report the mi
 
 ---
 
-## Phase 4 — Build the Wave Schedule
+## Phase 4 - Build the Wave Schedule
 
 Create waves from the currently ready tasks, then rebuild the schedule after each wave completes.
 
@@ -175,19 +148,19 @@ Create waves from the currently ready tasks, then rebuild the schedule after eac
 
 Apply these rules in priority order:
 
-1. **Plan dependencies come first**  
+1. **Plan dependencies come first**
    Only schedule tasks that are currently ready according to the plan system (or, in manual mode, tasks whose dependencies have been marked complete in the plan markdown).
 
-2. **Honor explicit sequencing**  
+2. **Honor explicit sequencing**
    If the plan marks tasks as sequential, keep them out of parallel execution.
 
-3. **Do not parallelize overlapping work**  
+3. **Do not parallelize overlapping work**
    Tasks that modify the same files, the same subsystem, or tightly coupled code paths should not run in parallel. Put them in separate waves or assign them to one subagent.
 
-4. **Prefer independence over throughput**  
+4. **Prefer independence over throughput**
    Parallelize only tasks that are likely to succeed without stepping on each other.
 
-5. **Keep waves understandable**  
+5. **Keep waves understandable**
    A smaller safe wave is better than a large conflicted wave.
 
 For each wave, write a brief summary like:
@@ -204,12 +177,12 @@ Reason: depends on Wave 1 outputs and touches shared backend files
 
 ---
 
-## Phase 5 — Prepare Execution Context
+## Phase 5 - Prepare Execution Context
 
 Before launching a wave:
 
 - identify the task IDs in the wave
-- gather each task’s exact wording from the plan
+- gather each task's exact wording from the plan
 - include relevant plan context for the assigned work
 - include outputs or constraints from earlier completed waves if needed
 
@@ -226,7 +199,7 @@ Each todo should include:
 
 ---
 
-## Phase 6 — Execute the Wave
+## Phase 6 - Execute the Wave
 
 Use `subagent` to execute the current wave.
 
@@ -234,7 +207,7 @@ Use parallel subagents only when the wave contains truly independent tasks. Othe
 
 ### Parallel execution
 
-For independent tasks, use `subagent` with parallel tasks. **Inline the full task description and relevant context into each subagent prompt** — do not just tell the subagent to "read the plan." The orchestrator already has this context; passing it directly saves tokens and prevents subagents from misidentifying their task.
+For independent tasks, use `subagent` with parallel tasks. **Inline the full task description and relevant context into each subagent prompt** - do not just tell the subagent to "read the plan." The orchestrator already has this context; passing it directly saves tokens and prevents subagents from misidentifying their task.
 
 ```json
 {
@@ -242,7 +215,7 @@ For independent tasks, use `subagent` with parallel tasks. **Inline the full tas
     {
       "agent": "worker",
       "cwd": "<EXECUTION_PATH>",
-      "task": "## Task [N.M]: <task title>\n\n<full task description from plan>\n\n### Context\n<any relevant notes from earlier waves, dependencies, or plan sections>\n\n### Relevant files\n<list files this task will likely touch>\n\n### Instructions\n- Implement only this task\n- Do not work on other tasks or do unrelated cleanup\n- When finished, report using this format:\n\n```\nStatus: complete | partial | blocked\nFiles changed:\n- <path> — <what changed>\n- <path> — <what changed>\nKey decisions:\n- <any non-obvious choice you made>\nBlockers:\n- <anything preventing completion, or \"none\">\n```"
+      "task": "## Task [N.M]: <task title>\n\n<full task description from plan>\n\n### Context\n<any relevant notes from earlier waves, dependencies, or plan sections>\n\n### Relevant files\n<list files this task will likely touch>\n\n### Instructions\n- Implement only this task\n- Do not work on other tasks or do unrelated cleanup\n- When finished, report using this format:\n\n```\nStatus: complete | partial | blocked\nFiles changed:\n- <path> - <what changed>\n- <path> - <what changed>\nKey decisions:\n- <any non-obvious choice you made>\nBlockers:\n- <anything preventing completion, or \"none\">\n```"
     }
   ]
 }
@@ -263,7 +236,7 @@ Every subagent prompt must:
 
 ---
 
-## Phase 7 — Evaluate Wave Results and Mark Progress
+## Phase 7 - Evaluate Wave Results and Mark Progress
 
 After a wave completes:
 
@@ -298,7 +271,7 @@ Do not mix plan tools and manual mode. Stay consistent with whichever mode was e
 
 ---
 
-## Phase 8 — Verify Before Claiming Success
+## Phase 8 - Verify Before Claiming Success
 
 Do not report success based only on task execution. Verify the work.
 
@@ -319,7 +292,7 @@ If the plan does not define validation commands, say so explicitly and provide t
 
 ---
 
-## Phase 9 — Continue Wave-by-Wave
+## Phase 9 - Continue Wave-by-Wave
 
 Repeat:
 1. Check progress (via `get_progress` in plan tool mode, or by parsing the plan markdown in manual mode)
@@ -327,7 +300,7 @@ Repeat:
 3. Prepare subagent prompts with inlined task content (Phase 5)
 4. Execute the wave (Phase 6)
 5. Evaluate results using the structured subagent reports (Phase 7)
-6. **Mark progress in the plan file** — call `update_progress` for each completed task, or `edit` checkboxes in manual mode. This is required every loop iteration, not just at the end.
+6. **Mark progress in the plan file** - call `update_progress` for each completed task, or `edit` checkboxes in manual mode. This is required every loop iteration, not just at the end.
 7. Verify as appropriate (Phase 8)
 
 Stop when:
@@ -340,14 +313,12 @@ Stop when:
 
 ## Phase 10 — Decide the Next Workflow Handoff
 
-After implementation tasks are complete and the relevant build-side verification has succeeded, do not assume the next step. Ask the user what they want to do next.
+After implementation tasks are complete and the relevant build-side verification has succeeded, ask the user what they want to do next.
 
 Use `ask_user` with a focused `select` prompt. The default options should be:
-- `Move to pi-dev-test in this worktree`
-- `Merge this branch into main`
+- `Move to pi-dev-test in this worktree` (recommended when tests haven't been run)
+- `Merge and clean up`
 - `Keep the worktree open for more changes`
-
-Adapt `main` to the project’s primary branch name if it is different.
 
 Decision rules:
 - if testing has not yet been run at the level implied by the plan, recommend `Move to pi-dev-test in this worktree`
@@ -360,9 +331,7 @@ If the user chooses testing:
 - state that testing should happen before merge so verification and integration happen in the same isolated workspace
 
 If the user chooses merge:
-- do not perform the merge implicitly
-- summarize the branch, worktree path, and verification evidence that supports merging
-- ask for explicit confirmation before any merge command is run in a later workflow
+- invoke the `pi-merge` skill, which handles the entire merge, push, worktree removal, and branch cleanup with one confirmation
 
 If the user chooses to keep working:
 - report that the worktree remains the source of truth for further edits and testing

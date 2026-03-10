@@ -11,16 +11,16 @@ Use this skill to orchestrate testing work: run existing tests, inspect coverage
 
 ## Variables
 
-- `PATH_TO_PLAN` — optional path to a plan file
-- `BROWSER_MODE` — from `--browser=none|headless|headed`, default `none`
-- `RUN_ONLY` — from `--run`
-- `COVERAGE` — from `--coverage`
-- `ANALYZE_FAILURES` — from `--analyze-failures`
-- `ANALYZE` — from `--analyze`
-- `GENERATE_MISSING` — from `--generate-missing`
-- `MANIFEST_PATH` — `.pi/test-manifest.json`
-- `TEST_DIR` — `tests/`
-- `PLAN_DIRECTORIES` — `artifacts/plans/`, `specs/`
+- `PATH_TO_PLAN` - optional path to a plan file
+- `BROWSER_MODE` - from `--browser=none|headless|headed`, default `none`
+- `RUN_ONLY` - from `--run`
+- `COVERAGE` - from `--coverage`
+- `ANALYZE_FAILURES` - from `--analyze-failures`
+- `ANALYZE` - from `--analyze`
+- `GENERATE_MISSING` - from `--generate-missing`
+- `MANIFEST_PATH` - `.pi/test-manifest.json`
+- `TEST_DIR` - `tests/`
+- `PLAN_DIRECTORIES` - `artifacts/plans/`, `specs/`
 
 ---
 
@@ -28,10 +28,10 @@ Use this skill to orchestrate testing work: run existing tests, inspect coverage
 
 Choose the lightest mode that satisfies the request:
 
-1. **Plan-Driven Mode** — verify work against a plan, acceptance criteria, or validation commands
-2. **Run Mode** — run existing tests quickly
-3. **Analyze Mode** — inspect gaps, stale tests, and low coverage without focusing on execution first
-4. **Discovery Mode** — inspect project test setup, identify frameworks, and optionally generate missing tests
+1. **Plan-Driven Mode** - verify work against a plan, acceptance criteria, or validation commands
+2. **Run Mode** - run existing tests quickly
+3. **Analyze Mode** - inspect gaps, stale tests, and low coverage without focusing on execution first
+4. **Discovery Mode** - inspect project test setup, identify frameworks, and optionally generate missing tests
 
 Rules:
 - Prefer **Run Mode** when the user just wants tests executed
@@ -42,7 +42,7 @@ Rules:
 Workspace policy:
 - If implementation happened in a git worktree, run verification in that same worktree
 - If the current directory is already a linked worktree, keep using it
-- If the user is testing a branch-based implementation from `main` or another shared checkout and the test flow may write files, caches, snapshots, or generated artifacts, recommend using a worktree first
+- If the user is testing a branch-based implementation from `main` or another shared checkout and the test flow may write files, caches, snapshots, or generated artifacts, invoke the `pi-worktree` skill to create an isolated worktree before running tests
 
 Do not make implementation changes by default. If tests expose product bugs, report them clearly and only fix implementation if the user asked for a repair-oriented testing loop.
 
@@ -65,7 +65,7 @@ If the request is ambiguous, use `ask_user` to confirm the intended mode before 
 
 Use this mode when testing should be anchored to a written plan or explicit acceptance criteria.
 
-## Phase P1 — Discover and Read the Plan
+## Phase P1 - Discover and Read the Plan
 
 Before selecting commands, use `bash` to determine the execution workspace: current branch, git top-level path, and whether the current directory is already a linked worktree. If the plan was built in a separate worktree path, treat that path as the default testing workspace.
 
@@ -89,7 +89,7 @@ Extract:
 - `#req-*` tags if present
 - traceability information if present
 
-## Phase P2 — Decide What Must Be Verified
+## Phase P2 - Decide What Must Be Verified
 
 Identify what kinds of tests are appropriate:
 - **Unit tests** for functions, utilities, transformations, isolated modules
@@ -98,7 +98,7 @@ Identify what kinds of tests are appropriate:
 
 If browser testing is likely relevant and `BROWSER_MODE` is `none`, ask the user whether browser verification should be included.
 
-## Phase P3 — Write or Expand Tests
+## Phase P3 - Write or Expand Tests
 
 Prefer existing test coverage and validation commands before adding new tests.
 
@@ -117,7 +117,7 @@ Do not weaken assertions or mark tests skipped just to force a passing result.
 
 Do not modify implementation unless the user explicitly asked for a fix-oriented loop.
 
-## Phase P4 — Run Verification
+## Phase P4 - Run Verification
 
 Use `bash` to run:
 - plan validation commands where available
@@ -132,9 +132,9 @@ Capture:
 - pass/fail counts
 - failing files or suites
 - command outputs
-- whether the plan’s acceptance criteria are satisfied, partially satisfied, or not yet satisfied
+- whether the plan's acceptance criteria are satisfied, partially satisfied, or not yet satisfied
 
-## Phase P5 — Report Plan Verification
+## Phase P5 - Report Plan Verification
 
 Summarize:
 - which criteria were verified by passing tests
@@ -151,7 +151,7 @@ Only mark plan completion or test completion when supported by actual results.
 
 Use this mode for fast execution of existing tests.
 
-## Phase R1 — Load Existing Test Context
+## Phase R1 - Load Existing Test Context
 
 If `MANIFEST_PATH` exists, use `read` to inspect it for:
 - preferred run commands
@@ -163,11 +163,11 @@ Use the manifest as a convenience for known commands and prior results, but pref
 
 If no manifest exists, infer the test command from the project structure using `bash`.
 
-## Phase R2 — Run Tests
+## Phase R2 - Run Tests
 
 Use `bash` to run the most appropriate existing test command.
 
-If the repo has an active implementation worktree, prefer running from that worktree rather than the primary checkout. If no worktree is active and the requested testing step is likely to update snapshots, fixtures, coverage artifacts, or generated files, ask the user whether they want to test in an isolated worktree first.
+If the repo has an active implementation worktree, prefer running from that worktree rather than the primary checkout. If no worktree is active and the requested testing step is likely to update snapshots, fixtures, coverage artifacts, or generated files, invoke the `pi-worktree` skill to create an isolated worktree before proceeding.
 
 Examples may include:
 - project package scripts
@@ -176,7 +176,7 @@ Examples may include:
 
 If `COVERAGE` is enabled, run the appropriate coverage command instead of or in addition to the base command.
 
-## Phase R3 — Report Results
+## Phase R3 - Report Results
 
 Report:
 - command(s) run
@@ -193,7 +193,7 @@ If `ANALYZE_FAILURES` is enabled and tests failed, continue into failure analysi
 
 Use this mode when the user wants insight into test quality, gaps, and priorities rather than a simple run.
 
-## Phase A1 — Inspect the Test Landscape
+## Phase A1 - Inspect the Test Landscape
 
 Use `bash` and `read` to inspect:
 - source directories
@@ -208,18 +208,18 @@ Look for:
 - low coverage areas if coverage data exists
 - critical paths without meaningful verification
 
-## Phase A2 — Analyze Gaps and Priorities
+## Phase A2 - Analyze Gaps and Priorities
 
 Categorize findings such as:
-- **Missing tests** — source files with no meaningful test coverage
-- **Partial coverage** — low-coverage or shallowly tested modules
-- **Stale tests** — tests that may no longer match recent source changes
-- **Weak assertions** — tests that exist but do not strongly verify behavior
-- **Failure hotspots** — repeatedly failing areas from prior runs or manifest history
+- **Missing tests** - source files with no meaningful test coverage
+- **Partial coverage** - low-coverage or shallowly tested modules
+- **Stale tests** - tests that may no longer match recent source changes
+- **Weak assertions** - tests that exist but do not strongly verify behavior
+- **Failure hotspots** - repeatedly failing areas from prior runs or manifest history
 
 If useful, use `subagent` with `worker` to analyze uncovered files and suggest high-value tests.
 
-## Phase A3 — Report Analysis
+## Phase A3 - Report Analysis
 
 Report:
 - highest-priority missing tests
@@ -234,9 +234,9 @@ Do not generate tests in Analyze Mode unless the user asked for it.
 
 # MODE 4: Discovery Mode
 
-Use this mode when the project’s testing setup is unclear, incomplete, or not yet standardized.
+Use this mode when the project's testing setup is unclear, incomplete, or not yet standardized.
 
-## Phase D1 — Detect Project Test Setup
+## Phase D1 - Detect Project Test Setup
 
 Use `bash` to inspect:
 - package or build manifests
@@ -253,7 +253,7 @@ Identify:
 - whether the repo already has a stable testing pattern
 - whether browser testing is likely relevant
 
-## Phase D2 — Decide What Is Missing
+## Phase D2 - Decide What Is Missing
 
 Determine whether the project needs:
 - only a test run
@@ -262,9 +262,9 @@ Determine whether the project needs:
 - missing tests for uncovered modules
 - manifest creation for future runs
 
-Prefer using the project’s existing conventions over introducing new ones.
+Prefer using the project's existing conventions over introducing new ones.
 
-## Phase D3 — Generate Missing Tests Only If Requested
+## Phase D3 - Generate Missing Tests Only If Requested
 
 If `GENERATE_MISSING` is enabled or the user explicitly asked for test generation:
 - use `subagent` with `worker` to generate tests for the highest-value uncovered modules first
@@ -273,7 +273,7 @@ If `GENERATE_MISSING` is enabled or the user explicitly asked for test generatio
 
 If generation is not requested, stop at reporting what is missing.
 
-## Phase D4 — Save or Update Manifest
+## Phase D4 - Save or Update Manifest
 
 When useful, create or update `.pi/test-manifest.json` with concise structured information such as:
 - project type and framework
@@ -286,7 +286,7 @@ When useful, create or update `.pi/test-manifest.json` with concise structured i
 
 Keep the manifest practical and easy to refresh. Do not let schema complexity dominate the workflow.
 
-## Phase D5 — Run Tests If Appropriate
+## Phase D5 - Run Tests If Appropriate
 
 If the user wants execution after discovery, run the most appropriate test command and report results.
 
@@ -296,7 +296,7 @@ If the user wants execution after discovery, run the most appropriate test comma
 
 Use this when tests fail and the user wants deeper insight.
 
-## Phase F1 — Categorize Failures
+## Phase F1 - Categorize Failures
 
 Group failures into patterns such as:
 - assertion mismatch
@@ -309,7 +309,7 @@ Group failures into patterns such as:
 
 Use `bash` to capture relevant failing output and `read` to inspect affected test files when needed.
 
-## Phase F2 — Analyze Root Cause
+## Phase F2 - Analyze Root Cause
 
 Use direct investigation first. If helpful, use `subagent` with `worker` to produce a structured failure summary.
 
@@ -319,7 +319,7 @@ Distinguish between:
 - environment/setup problem
 - outdated expectation after intended behavior change
 
-## Phase F3 — Report Fix Direction
+## Phase F3 - Report Fix Direction
 
 Provide:
 - failure category
@@ -351,20 +351,19 @@ If browser setup is heavy or project-specific, keep the test scope narrow and fo
 
 # Post-Test Merge Decision
 
-After testing succeeds for a branch-based or worktree-based workflow, ask the user what they want to do next instead of assuming the branch should remain open forever.
+After testing succeeds for a branch-based or worktree-based workflow, ask the user what they want to do next.
 
 Use `ask_user` with a focused `select` prompt. The default options should be:
-- `Merge this branch into main`
+- `Merge and clean up` (recommended when all tests pass)
 - `Keep the worktree open for more changes`
 - `Stop here without merging yet`
 
-Adapt `main` to the project’s primary branch name if it is different.
-
 Decision rules:
 - if tests or validation commands failed, do not offer merge as the recommended path
-- if tests passed in a worktree or feature branch, recommend merge when the user asked for completion-oriented verification
-- if the user wants more changes, keep the worktree path and branch visible in the final report so the next step stays grounded in the correct workspace
-- do not perform the merge implicitly; ask for explicit confirmation before any merge command is run in a later workflow
+- if tests passed in a worktree or feature branch, recommend `Merge and clean up`
+- if the user wants more changes, keep the worktree path and branch visible in the final report
+
+**If the user selects merge:** Invoke the `pi-merge` skill. It handles the entire merge, push, worktree removal, and branch cleanup with one confirmation. Do not reimplement merge logic here.
 
 # Unified Report
 

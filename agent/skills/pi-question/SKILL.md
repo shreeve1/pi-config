@@ -1,5 +1,5 @@
 ---
-name: question
+name: pi-question
 description: Answer questions about the current project by exploring the codebase, documentation, and configuration without making code changes. Use when the user asks where something lives, how a feature works, what the project structure looks like, or wants a read-only explanation grounded in files rather than implementation.
 ---
 

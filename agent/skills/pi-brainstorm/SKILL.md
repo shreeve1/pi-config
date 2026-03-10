@@ -19,17 +19,26 @@ Start by identifying the topic and any optional project path or project context 
 
 Keep the setup light. The point is to create enough structure for a productive session, not to slow the conversation down.
 
-## Phase 2 — Review Project Context When Helpful
+## Phase 2 — Ask Whether to Use Project Context
 
-If the user supplied a project path, or the current repository is clearly relevant, do a fast project review before brainstorming.
+Do not assume a project review is wanted just because a repository or path is available.
 
-Use `bash` and `read` to understand:
+If there is a relevant local project, current repository, or referenced codebase, ask the user whether to include project context before reviewing files. A good `ask_user` `select` is:
+- yes, review the project first
+- no, brainstorm without project review
+- decide after a quick topic setup
+
+If the user chooses project review, do a fast review before brainstorming.
+If the user chooses no review, skip directly to clarification and ideation.
+If the user wants to decide later, continue the intake and revisit the choice only if project context would materially improve the brainstorm.
+
+When project review is approved, use `bash` and `read` to understand:
 - what the project does
 - the stack and architecture
 - notable strengths, constraints, and gaps
 - where new ideas would fit naturally
 
-Summarize the findings briefly before moving on. If there is no meaningful project context, skip this phase.
+Summarize the findings briefly before moving on.
 
 ## Phase 3 — Clarify Intent Interactively
 
@@ -42,6 +51,14 @@ Good topics to clarify:
 - what constraints matter most
 - what success looks like
 - whether the user wants broad exploration or practical next steps
+- whether the user wants web research or a no-research brainstorm
+
+When research preference is not already explicit, ask directly with `ask_user` using a `select` such as:
+- brainstorm only, no web research
+- brainstorm with targeted web research
+- decide after seeing angles
+
+Treat this choice as a steering input, not a default assumption.
 
 Use `select` when a few common options fit. Use `input` or `editor` when the user needs room to explain nuance.
 
@@ -63,9 +80,15 @@ If the user wants changes, revise the angles and confirm again.
 
 ## Phase 5 — Research in Parallel When External Evidence Matters
 
-If web research would materially improve the brainstorming session, use `subagent` in parallel to investigate the selected angles.
+Honor the user's explicit research preference.
 
-Each subagent should:
+- If they chose no web research, skip this phase entirely and brainstorm from project context plus reasoning.
+- If they chose targeted web research, use `subagent` in parallel to investigate the selected angles.
+- If they asked to decide later, recommend whether research is worth it after angles are proposed, then confirm with `ask_user` before searching.
+
+Do not silently perform web research just because it might help. Make the choice visible.
+
+When research is approved, each subagent should:
 1. research one angle using `web_search` and `web_fetch`
 2. return 3-5 concise insights
 3. call out any surprising or contrarian findings
@@ -86,7 +109,7 @@ Instructions:
 5. Keep the response compact and decision-oriented.
 ```
 
-If the topic is mainly internal, speculative, or project-specific, skip web research and brainstorm directly.
+If the topic is mainly internal, speculative, or project-specific, recommend skipping web research unless the user explicitly wants external signals.
 
 ## Phase 6 — Synthesize and Explore Ideas
 
@@ -156,8 +179,10 @@ When saving a summary, use this structure:
 ## Report
 
 After completing the skill's work, report:
-- whether project review was performed
-- whether research was performed
+- what project-context mode was chosen: review first, no project review, or decide later
+- whether project review was actually performed
+- what research mode was chosen: no research, targeted web research, or decide later
+- whether research was actually performed
 - the main ideas generated
 - any file written and its path
 - the best next step for the user
