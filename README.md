@@ -98,9 +98,9 @@ If you use custom providers (Ollama, etc.), create `~/.pi/agent/models.json`:
                              │                │              │
                              ▼                ▼              ▼
                       ┌──────────────────────────────┐  Quick fix?
-                      │         pi-dev-plan          │◄── Yes ──┘
+                      │         pi-dev-plan          │◄── No ───┘
                       └──────────┬───────────────────┘
-                                 │                        No ──► Done
+                                 │                        Yes ──► Implement
                                  ▼
                       ┌──────────────────────────────┐
                       │       pi-dev-validate        │
