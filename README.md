@@ -79,6 +79,92 @@ If you use custom providers (Ollama, etc.), create `~/.pi/agent/models.json`:
 }
 ```
 
+## How To Use — Skill Workflows
+
+```
+                         ┌─────────────────────────────────────────┐
+                         │            Where do you start?          │
+                         └──────┬──────────────┬──────────────┬────┘
+                                │              │              │
+                                ▼              ▼              ▼
+                         ┌────────────┐ ┌────────────┐ ┌────────────┐
+                         │  New idea  │ │  Bug / Fix │ │  Quick Q   │
+                         └─────┬──────┘ └─────┬──────┘ └─────┬──────┘
+                               │              │              │
+                               ▼              ▼              ▼
+                      ┌──────────────┐ ┌──────────────┐ ┌──────────┐
+                      │ pi-brainstorm│ │dev-investigate│ │ question │
+                      └──────┬───────┘ └──────┬───────┘ └────┬─────┘
+                             │                │              │
+                             ▼                ▼              ▼
+                      ┌──────────────────────────────┐  Quick fix?
+                      │         pi-dev-plan          │◄── Yes ──┘
+                      └──────────┬───────────────────┘
+                                 │                        No ──► Done
+                                 ▼
+                      ┌──────────────────────────────┐
+                      │       pi-dev-validate        │
+                      └──────────┬───────────────────┘
+                                 │
+                                 ▼
+                      ┌──────────────────────────────┐
+                      │        pi-dev-build          │
+                      └──────────┬───────────────────┘
+                                 │
+                                 ▼
+                      ┌──────────────────────────────┐
+                      │        pi-dev-test           │
+                      └──────────┬───────────────────┘
+                                 │
+                                 ▼
+                              Done ──► pi-commit
+
+
+  Design Workflow:
+
+      design-workflow ──► ui-review ──► iterate ──► pi-dev-plan ──► build
+```
+
+### Development Workflow
+
+The core development loop for features, refactors, and significant changes:
+
+1. **`pi-brainstorm`** or **`dev-investigate`** — Start here. Brainstorm explores ideas and directions creatively. Investigate digs into bugs, unexpected behavior, or unclear root causes.
+2. **`pi-dev-plan`** — Turn your findings into a structured implementation plan with tasks, dependencies, and acceptance criteria.
+3. **`pi-dev-validate`** — Validate the plan against your codebase before writing code. Catches breaking changes, database risks, and dependency issues.
+4. **`pi-dev-build`** — Execute the plan task-by-task with parallel subagents and progress tracking.
+5. **`pi-dev-test`** — Run tests, expand coverage, and verify the implementation meets acceptance criteria.
+
+### Quick Questions & Small Changes
+
+Not everything needs the full workflow:
+
+1. **`question`** — Ask about your codebase: where something lives, how a feature works, what the structure looks like. Read-only exploration.
+2. If the answer reveals a small fix, make it directly. If it's bigger than expected, loop into the dev workflow at **`pi-dev-plan`**.
+
+### Design Workflow
+
+For UI work — exploring visual directions before committing to code:
+
+1. **`design-workflow`** — Generate multiple UI design directions with mockups, theme variants, and a side-by-side gallery. Produces HTML/CSS concepts under `artifacts/design/`.
+2. **`ui-review`** — Take screenshots of live pages or mockups and get visual feedback: layout issues, responsive problems, design critique. Saves a report to `artifacts/ui-review/`.
+3. **Iterate** — Refine based on review feedback, then loop back to `ui-review` until satisfied.
+4. **Build** — Once a direction is chosen, feed it into **`pi-dev-plan`** → **`pi-dev-build`** to implement.
+
+### Other Useful Skills
+
+| Skill | Use for |
+|---|---|
+| `pi-commit` | Git operations with safety checks |
+| `pi-continue` | Resume work from a saved session |
+| `pi-document` | Extract and save documentation from sessions |
+| `pi-interview` | Deep-dive Q&A about your project plans and goals |
+| `pi-mem` | Browse, search, and save persistent memory across sessions |
+| `pi-prime` | Load context for a new session by analyzing codebase + recent history |
+| `pi-restart` | Kill and restart all running servers |
+| `dev-prd` | Turn an idea into a product requirements document |
+| `pi-create-skill` | Create or modify skills |
+
 ## What's Included
 
 | Directory | Contents |
