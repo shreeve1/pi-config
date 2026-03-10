@@ -1,0 +1,11 @@
+{
+  "name": "pi-typescript-lsp",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "typescript": "^5.9.3",
+    "typescript-language-server": "^5.1.3",
+    "vscode-jsonrpc": "^8.2.1",
+    "vscode-languageserver-protocol": "^3.17.5"
+  }
+}

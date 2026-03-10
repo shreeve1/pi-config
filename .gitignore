@@ -1,0 +1,29 @@
+# Secrets
+agent/auth.json
+agent/models.json
+**/models.json
+
+# Session & runtime data
+agent/sessions/
+sessions/
+data/
+memory/
+
+# Session registries
+agent/cleon-sessions.json
+agent/cleon-sessions-registry.json
+agent/nathan-sessions.json
+agent/nathan-sessions-registry.json
+
+# Dependencies
+node_modules/
+
+# Submodules managed separately
+superpowers/
+
+# Cache
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
