@@ -11,6 +11,14 @@ Personal [pi](https://github.com/nicholasgasior/pi-coding-agent) configuration �
 
 ## Installation
 
+### Quick Setup via AI Agent
+
+Already have pi running? Paste this prompt into your pi session and let the agent do the rest:
+
+```
+Clone https://github.com/shreeve1/pi-config.git into ~/.pi (back up existing first), run npm install in agent/, agent/extensions/typescript-lsp/, and agent/extensions/web-fetch/, then create agent/auth.json with my API keys — ask me for each key I want to add.
+```
+
 ### 1. Clone into `~/.pi`
 
 ```bash
@@ -71,15 +79,6 @@ If you use custom providers (Ollama, etc.), create `~/.pi/agent/models.json`:
 }
 ```
 
-### 5. Install superpowers (optional)
-
-The `superpowers/` skill pack is a separate repo and not included in this clone:
-
-```bash
-# If you have access to the superpowers repo:
-git clone <superpowers-repo-url> ~/.pi/superpowers
-```
-
 ## What's Included
 
 | Directory | Contents |
@@ -101,14 +100,6 @@ Default settings in `agent/settings.json`:
 - **Thinking:** low
 
 Edit `~/.pi/agent/settings.json` to change defaults.
-
-## Quick Setup via AI Agent
-
-Already have pi running? Paste this prompt into your pi session and let the agent do the rest:
-
-```
-Clone https://github.com/shreeve1/pi-config.git into ~/.pi (back up existing first), run npm install in agent/, agent/extensions/typescript-lsp/, and agent/extensions/web-fetch/, then create agent/auth.json with my API keys — ask me for each key I want to add.
-```
 
 ## Updating
 
