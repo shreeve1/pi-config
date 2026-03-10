@@ -11,7 +11,7 @@ Do NOT use this skill for: creating plans from scratch, executing/implementing p
 
 ---
 
-Intelligently analyze an implementation plan in two passes: first determine whether the plan is fundamentally feasible for the current codebase, then run only the validations that actually apply. Detects missing prerequisites, nonexistent file references, architecture mismatches, breaking changes, database risks, component impacts, dependency issues, and more. When issues are found, automatically rewrite risky steps with safer alternatives while preserving the original as reference.
+Intelligently analyze an implementation plan in two passes: first determine whether the plan is fundamentally feasible for the current codebase, then run only the validations that actually apply. Detects missing prerequisites, nonexistent file references, architecture mismatches, breaking changes, database risks, component impacts, dependency issues, and more. If the plan is not feasible, stop validation and hand off to brainstorming/re-planning instead of trying to salvage the plan inside this skill. When issues are found in otherwise feasible plans, automatically rewrite risky steps with safer alternatives while preserving the original as reference.
 
 **Token Efficient**: Uses smart analysis to skip irrelevant validations, typically saving 50-75% of tokens compared to running all checks every time.
 
@@ -37,7 +37,7 @@ You MUST create a task for each of these items and complete them in order:
 - If `PLAN_FILE` is provided, validate that specific plan.
 - If `PLAN_FILE` is omitted, use Plan Discovery Protocol to auto-discover the most recent plan from `PLAN_DIRECTORIES`.
 - **Feasibility First**: Before launching any validation workers, explicitly check whether the plan can realistically be implemented in this repo as written.
-- **Smart Validation**: Only after feasibility passes (or after feasibility issues are captured and the plan is rewritten) analyze which validations are needed, then run only relevant checks.
+- **Smart Validation**: Only after feasibility passes or returns `feasible-with-risks` should this skill analyze which validations are needed and run relevant checks.
 - **Token Efficiency**: Skip validations that don't apply (e.g., don't check database safety for UI-only changes).
 - Always run a Feasibility Preflight before worker fan-out. After that, run Breaking Changes Analysis (baseline safety) and conditionally run 0-6 additional targeted validations.
 - Treat missing prerequisites, nonexistent referenced files, unsupported architectural assumptions, or multi-epic scope crammed into one plan as first-class validation issues even if no specific validator would otherwise catch them.
@@ -100,19 +100,23 @@ You MUST create a task for each of these items and complete them in order:
   3. **Architecture assumptions are grounded** — if the plan refers to systems that do not appear to exist yet (billing portal, role system, background jobs, design system, API layer), flag the mismatch.
   4. **Scope is execution-sized** — detect plans that bundle multiple major initiatives into one implementation pass. Mark these as feasibility warnings or critical issues when the plan is too broad to validate/build safely as one unit.
   5. **Sequence is viable** — detect steps that depend on unfinished prerequisite work, or that validate/test features before the supporting implementation exists.
-- Output a structured feasibility result with:
+- Output a structured feasibility result with this handoff shape:
   - `status`: `feasible` | `feasible-with-risks` | `not-feasible`
   - `critical_blockers`: list
   - `missing_prerequisites`: list
   - `scope_concerns`: list
-  - `recommended_action`: `continue` | `rewrite-plan-first` | `split-plan`
+  - `repo_fit_summary`: short plain-English summary
+  - `recommended_action`: `continue` | `replan-with-pi-brainstorm`
 - Deterministic severity guidance:
   - **not-feasible / critical**: the plan relies on missing foundations, nonexistent edit targets, impossible sequencing, or major unsupported assumptions
   - **feasible-with-risks / warning**: the plan is directionally possible but too broad, underspecified, or missing explicit prerequisite tasks
   - **feasible / info**: prerequisites and sequence appear sound
-- If status is `not-feasible`, do NOT immediately fan out validation workers. First rewrite or annotate the plan so the blockers are visible, then stop and ask the user for confirmation before doing anything beyond feasibility reporting. Only continue if the user explicitly wants either: (a) a rewritten/split plan, or (b) a limited validation pass on a clearly identified feasible subset.
+- If status is `not-feasible`, do NOT fan out validation workers and do NOT continue trying to rewrite or salvage the plan inside this skill. Stop validation, summarize the blockers, and hand off to brainstorming/re-planning.
+- **REQUIRED HANDOFF:** For `not-feasible` plans, invoke `pi-brainstorm` for re-planning. Do not use the superpowers brainstorming skill for this transition.
+- Pass the structured feasibility result into `pi-brainstorm` as the handoff context. At minimum include: `status`, `critical_blockers`, `missing_prerequisites`, `scope_concerns`, `repo_fit_summary`, and the original failed plan goal.
 - If status is `feasible-with-risks`, continue to worker selection but carry the feasibility findings into Risk Analysis and plan rewriting.
-- For `not-feasible` results, ask one plain-English confirmation question before any worker fan-out: `This plan appears to assume X and Y already exist, but I can't find them in the repo. Should I rewrite the plan to include those foundations first, or split this into smaller plans?`
+- For `not-feasible` results, explicitly transition out of this skill by telling the user the plan needs re-planning and invoking the brainstorming workflow before any new implementation plan is produced.
+- Plain-English handoff prompt for vibe-coder users: `This plan doesn't fit the current repo as written. I’m stopping validation here. Next we should brainstorm a better-fit approach, then create a new plan from that. Do you want to start that now?`
 
 Add findings to Risk Analysis under `Critical Issues`, `Warnings`, or a new `Feasibility Findings` subsection.
 
@@ -146,7 +150,7 @@ Add findings to Risk Analysis under either `Critical Issues` or `Warnings` as ap
 
 4. **Determine Required Validations**
 
-   Only do this after the Feasibility Preflight. The analysis subagent must receive the feasibility findings so it can avoid blindly validating impossible work.
+   Only do this after the Feasibility Preflight when the result is `feasible` or `feasible-with-risks`. If the result is `not-feasible`, exit this skill and invoke brainstorming/re-planning instead of running analysis workers.
 
    Spawn a single analysis subagent using `subagent` to analyze the plan and determine which validations are needed:
 
@@ -157,7 +161,6 @@ Add findings to Risk Analysis under either `Critical Issues` or `Warnings` as ap
    Feasibility Findings: [structured feasibility result]
 
    Instructions:
-   0. If feasibility status is `not-feasible`, do not assume the whole plan should proceed unchanged; recommend limiting validation to feasible portions and surface blockers prominently.
    1. Analyze the "Relevant Files" section for file patterns
    2. Scan "Step by Step Tasks" for types of changes being made
    3. Identify risk categories based on semantic understanding
@@ -431,7 +434,7 @@ The plan is ready to build as-is. No modifications were made.
 
 - If no plans exist in either of the `PLAN_DIRECTORIES`: inform user and suggest creating a plan first
 - If selected plan file doesn't exist: report error and re-prompt for selection
-- If feasibility preflight finds the plan is not implementable as written: stop worker fan-out, rewrite/annotate the plan with blockers, and ask whether to split or resequence the plan before build execution
+- If feasibility preflight finds the plan is not implementable as written: stop worker fan-out, summarize the blockers in the structured feasibility result, and hand off to `pi-brainstorm` for re-planning
 - If subagent analysis fails: report which analysis failed and continue with available results
 - If validation command path extraction is ambiguous or partially fails: report which commands could not be parsed, mark provenance status as `unknown`, and continue with conservative warnings
 - If provenance comparison cannot run (not a git repo or no accessible sibling checkout/worktree): mark provenance as `unknown` and require explicit user confirmation before recommending build execution

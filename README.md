@@ -132,14 +132,26 @@ If you use custom providers (Ollama, etc.), create `~/.pi/agent/models.json`:
                                  ▼
                       ┌──────────────────────────────┐
                       │       pi-dev-validate        │
-                      └──────────┬───────────────────┘
-                                 │
-                                 ▼
-                      ┌──────────────────────────────┐
-                      │        pi-dev-build          │
-                      └──────────┬───────────────────┘
-                                 │
-                                 ▼
+                      └──────┬───────────────┬───────┘
+                             │               │
+                          Feasible      Not feasible
+                             │               │
+                             ▼               ▼
+                      ┌────────────┐  ┌──────────────┐
+                      │ pi-dev-    │  │ pi-brainstorm │
+                      │ build      │  │ (reshape w/   │
+                      └─────┬──────┘  │  blockers)    │
+                            │         └──────┬───────┘
+                            │                │
+                            │                ▼
+                            │         ┌──────────────┐
+                            │         │ New plan via  │
+                            │         │ pi-dev-plan   │
+                            │         └──────┬───────┘
+                            │                │
+                            │       (loops back to validate)
+                            │
+                            ▼
                       ┌──────────────────────────────┐
                       │        pi-dev-test           │
                       └──────────┬───────────────────┘
@@ -159,9 +171,10 @@ The core development loop for features, refactors, and significant changes:
 
 1. **`pi-brainstorm`** or **`dev-investigate`** — Start here. Brainstorm explores ideas and directions creatively. Investigate digs into bugs, unexpected behavior, or unclear root causes.
 2. **`pi-dev-plan`** — Turn your findings into a structured implementation plan with tasks, dependencies, and acceptance criteria.
-3. **`pi-dev-validate`** — Validate the plan against your codebase before writing code. Catches breaking changes, database risks, and dependency issues.
-4. **`pi-dev-build`** — Execute the plan task-by-task with parallel subagents and progress tracking.
-5. **`pi-dev-test`** — Run tests, expand coverage, and verify the implementation meets acceptance criteria.
+3. **`pi-dev-validate`** — Validate the plan against your codebase before writing code. Runs a feasibility preflight first — if the plan isn't implementable as written (missing dependencies, nonexistent files, architecture mismatches), validation stops and hands off to `pi-brainstorm` with the blockers as constraints.
+4. **`pi-brainstorm` (reshape)** — If validate found the plan not feasible, brainstorm uses the blockers to reshape the approach into something that fits the repo. The output feeds back into `pi-dev-plan` → `pi-dev-validate` until the plan passes.
+5. **`pi-dev-build`** — Execute the validated plan task-by-task with parallel subagents and progress tracking.
+6. **`pi-dev-test`** — Run tests, expand coverage, and verify the implementation meets acceptance criteria.
 
 ### Quick Questions & Small Changes
 

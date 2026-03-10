@@ -1,13 +1,36 @@
 ---
 name: pi-brainstorm
-description: Use when the user wants to brainstorm, explore ideas, compare directions, think creatively, or generate options before committing to implementation. Trigger on requests like brainstorm, ideate, what if, how might we, explore approaches, help me think through, or when the user wants research-backed idea generation instead of immediate execution.
+description: Use when the user wants to brainstorm, explore ideas, compare directions, think creatively, generate options before implementation, or re-plan after validation shows a plan is not feasible for the current repo.
 ---
 
 # Pi Brainstorm
 
-Use this skill when the goal is collaborative idea generation and directional thinking, especially before committing to a build plan. Do not use it when the user already wants a concrete implementation plan or direct code changes; in those cases, finish the brainstorming quickly or hand off to planning.
+Use this skill when the goal is collaborative idea generation and directional thinking, especially before committing to a build plan. It is also the required re-planning skill when `pi-dev-validate` determines a plan is `not-feasible` for the current repository. Do not use it when the user already wants a concrete implementation plan or direct code changes; in those cases, finish the brainstorming quickly or hand off to planning.
 
 ---
+
+## Validate Handoff Mode
+
+When this skill is invoked from `pi-dev-validate` because a plan is `not-feasible`, do not treat the session as open-ended ideation.
+
+Required behavior in this mode:
+1. Read the structured feasibility result from validate first.
+2. Expect this handoff shape when available: `status`, `critical_blockers`, `missing_prerequisites`, `scope_concerns`, `repo_fit_summary`, and the original failed plan goal.
+3. Restate the blockers in plain English so the user understands why the previous plan did not fit the repo.
+4. Treat those blockers as hard constraints for brainstorming.
+5. Focus on producing a better-fit replacement direction, a smaller phased approach, or a prerequisite-first plan.
+6. Do not drift into imaginative options that ignore the current repo state.
+7. Best next step after this mode is usually a new implementation plan, not immediate coding.
+
+Typical blocker inputs from validate may include:
+- missing dependencies or services
+- nonexistent file references
+- architecture assumptions not present in the repo
+- plan scope that is too large for one execution pass
+- sequencing or prerequisite problems
+
+If blockers are missing or underspecified, ask for them before continuing.
+Do not proceed in validate-handoff mode without at least one concrete blocker or feasibility finding from `pi-dev-validate`.
 
 ## Phase 1 — Capture the Topic
 
@@ -15,7 +38,8 @@ Start by identifying the topic and any optional project path or project context 
 
 1. If the topic is missing or vague, use `ask_user` to get it.
 2. If the user references a local project path, verify it exists with `bash`.
-3. If you will save notes later, ensure `artifacts/brainstorming/` exists with `bash`.
+3. If this was entered from `pi-dev-validate`, capture the failed plan goal plus the structured feasibility result as the starting context.
+4. If you will save notes later, ensure `artifacts/brainstorming/` exists with `bash`.
 
 Keep the setup light. The point is to create enough structure for a productive session, not to slow the conversation down.
 
@@ -43,6 +67,7 @@ Summarize the findings briefly before moving on.
 ## Phase 3 — Clarify Intent Interactively
 
 Before generating ideas, restate your current understanding in one or two sentences.
+If this came from `pi-dev-validate`, include both: (a) the original goal of the failed plan and (b) the blockers that must shape the replacement approach.
 
 Then use `ask_user` to gather the minimum context needed to make the brainstorming useful. Prefer 1-2 short interactions over a long interview.
 
@@ -52,6 +77,7 @@ Good topics to clarify:
 - what success looks like
 - whether the user wants broad exploration or practical next steps
 - whether the user wants web research or a no-research brainstorm
+- if entered from `pi-dev-validate`, whether the user wants: a smaller replacement plan, a prerequisite-first plan, or a phased roadmap
 
 When research preference is not already explicit, ask directly with `ask_user` using a `select` such as:
 - brainstorm only, no web research
@@ -125,6 +151,7 @@ Then shift into collaborative ideation.
 2. Ask the user which direction resonates most using `ask_user` when a structured choice is helpful.
 3. Build on their answer with alternatives, combinations, and "what if" variants.
 4. Periodically synthesize what has emerged so the session stays coherent.
+5. If entered from `pi-dev-validate`, make every direction explicitly repo-fit: show how it avoids the failed plan's blockers and whether it is best framed as a replacement plan, prerequisite plan, or phased sequence.
 
 Keep the tone energetic and collaborative. The goal is exploration, not premature convergence.
 
@@ -147,6 +174,7 @@ Suggested sections:
 - Recommended next steps
 
 If the conversation naturally leads into execution, suggest the next skill or workflow, such as creating an implementation plan.
+If this session came from `pi-dev-validate`, the default next step should be a new implementation plan that explicitly incorporates the feasibility constraints discovered during validation.
 
 ## Output Format
 
@@ -179,10 +207,13 @@ When saving a summary, use this structure:
 ## Report
 
 After completing the skill's work, report:
+- whether this was a normal brainstorm or a `pi-dev-validate` handoff
+- what feasibility blockers or repo-fit constraints shaped the session
 - what project-context mode was chosen: review first, no project review, or decide later
 - whether project review was actually performed
 - what research mode was chosen: no research, targeted web research, or decide later
 - whether research was actually performed
 - the main ideas generated
+- which direction best fits the current repo
 - any file written and its path
 - the best next step for the user
