@@ -42,10 +42,12 @@ Pi and Claude Code use the same models, but the community consistently highlight
 
 Install Pi: `npm install -g @mariozechner/pi-coding-agent`
 
-Paste this prompt into your pi session and let the agent do the rest:
+Paste this prompt into your already working cli/agent tool session and let the agent do the rest:
 
 ```
 Clone https://github.com/shreeve1/pi-config.git into ~/.pi (back up existing first), run npm install in agent/, agent/extensions/typescript-lsp/, and agent/extensions/web-fetch/.
+
+Run /login once pi config is installed to setup providers
 ```
 
 ## Manual Install
