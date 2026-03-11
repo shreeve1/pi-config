@@ -200,19 +200,8 @@ async function showQuestionDialog(
 					}
 				};
 			}
-			if (input) {
-				input.onSubmit = (value) => {
-					const trimmed = value.trim();
-					if (trimmed) {
-						done({
-							answer: trimmed,
-							cancelled: false,
-							timedOut: false,
-							wasTyped: true,
-						});
-					}
-				};
-			}
+			// For Input, we handle Enter/submit in handleInput directly
+			// to ensure we can read getValue() as a fallback
 
 			// Countdown state
 			let remainingMs = params.timeout ?? 0;
@@ -280,6 +269,40 @@ async function showQuestionDialog(
 						isInputFocused = false;
 						selectedIndex = 0;
 						refresh();
+						return;
+					}
+
+					// For non-editor input: intercept Enter to handle submission directly
+					// This ensures typed text is always captured via getValue()
+					if (input && matchesKey(data, Key.enter)) {
+						const typed = input.getValue().trim();
+						if (typed) {
+							done({
+								answer: typed,
+								cancelled: false,
+								timedOut: false,
+								wasTyped: true,
+							});
+						} else if (params.type === "select") {
+							// Empty input + Enter on select: select the highlighted option
+							done({
+								answer: options[selectedIndex]!,
+								cancelled: false,
+								timedOut: false,
+								selectedIndex,
+								wasTyped: false,
+							});
+						} else if (params.type === "confirm") {
+							// Empty input + Enter on confirm: default to Yes
+							done({
+								answer: true,
+								cancelled: false,
+								timedOut: false,
+								selectedIndex: 0,
+								wasTyped: false,
+							});
+						}
+						// For input/editor type with empty text, do nothing (require text)
 						return;
 					}
 

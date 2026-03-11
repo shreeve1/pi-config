@@ -15,7 +15,7 @@ When this skill is invoked from `pi-dev-validate` because a plan is `not-feasibl
 
 Required behavior in this mode:
 1. Read the structured feasibility result from validate first.
-2. Expect this handoff shape when available: `status`, `critical_blockers`, `missing_prerequisites`, `scope_concerns`, `repo_fit_summary`, and the original failed plan goal.
+2. Expect this handoff shape when available: `status`, `critical_blockers`, `missing_prerequisites`, `scope_concerns`, `repo_fit_summary`, `recommended_action`, and the original failed plan goal.
 3. Restate the blockers in plain English so the user understands why the previous plan did not fit the repo.
 4. Treat those blockers as hard constraints for brainstorming.
 5. Focus on producing a better-fit replacement direction, a smaller phased approach, or a prerequisite-first plan.
@@ -30,7 +30,7 @@ Typical blocker inputs from validate may include:
 - sequencing or prerequisite problems
 
 If blockers are missing or underspecified, ask for them before continuing.
-Do not proceed in validate-handoff mode without at least one concrete blocker or feasibility finding from `pi-dev-validate`.
+Do not proceed in validate-handoff mode without at least one concrete feasibility finding from `pi-dev-validate` such as a blocker, missing prerequisite, scope concern, or repo-fit summary.
 
 ## Phase 1 — Capture the Topic
 
