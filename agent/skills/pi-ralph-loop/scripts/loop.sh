@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ============================================================================
-# pi-loop: Autonomous development loop
+# pi-ralph-loop: Autonomous development loop
 # Reads .loop/requirements.md, executes tasks one at a time via `pi -p`,
 # marks them complete, and continues until done or circuit breaker trips.
 # ============================================================================
@@ -70,7 +70,7 @@ preflight() {
 
     if [[ ! -f "$REQUIREMENTS_FILE" ]]; then
         log "ERROR: Requirements file not found: $REQUIREMENTS_FILE"
-        log "Run the pi-loop skill first to generate requirements."
+        log "Run the pi-ralph-loop skill first to generate requirements."
         exit 1
     fi
 
@@ -176,7 +176,7 @@ git_checkpoint() {
        ! git -C "$PROJECT_DIR" diff --cached --quiet 2>/dev/null; then
         log "Git: Creating safety checkpoint..."
         git -C "$PROJECT_DIR" add -A
-        git -C "$PROJECT_DIR" commit -m "pi-loop: checkpoint before iteration $iteration" --no-verify --quiet 2>/dev/null || true
+        git -C "$PROJECT_DIR" commit -m "pi-ralph-loop: checkpoint before iteration $iteration" --no-verify --quiet 2>/dev/null || true
         log "Git: Checkpoint created"
     fi
 }
@@ -187,7 +187,7 @@ git_rollback_last() {
     fi
     local last_msg
     last_msg=$(git -C "$PROJECT_DIR" log -1 --pretty=%s 2>/dev/null || echo "")
-    if [[ "$last_msg" == pi-loop:* ]]; then
+    if [[ "$last_msg" == pi-ralph-loop:* ]]; then
         log "Git: Rolling back last checkpoint..."
         git -C "$PROJECT_DIR" reset --hard HEAD~1 --quiet 2>/dev/null || true
     fi
@@ -350,7 +350,7 @@ main() {
     load_state
 
     log "╔══════════════════════════════════════════╗"
-    log "║         pi-loop: Starting Loop           ║"
+    log "║      pi-ralph-loop: Starting Loop        ║"
     log "╚══════════════════════════════════════════╝"
     log ""
     log "Project:    $PROJECT_DIR"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# pi-loop monitor: Live dashboard for the autonomous loop
+# pi-ralph-loop monitor: Live dashboard for the autonomous loop
 # Run: .loop/monitor.sh  or  watch -n 2 .loop/monitor.sh
 # ============================================================================
 
@@ -38,7 +38,7 @@ format_duration() {
 clear
 
 echo -e "${BOLD}╔══════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BOLD}║              pi-loop Monitor Dashboard                  ║${NC}"
+echo -e "${BOLD}║              pi-ralph-loop Monitor Dashboard                  ║${NC}"
 echo -e "${BOLD}╚══════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -208,6 +208,6 @@ if [[ "$running" == "true" ]]; then
     echo -e "${DIM}Stop loop: kill $(cat "$LOCK_FILE" 2>/dev/null || echo 'PID')${NC}"
 else
     echo -e "${DIM}Start: .loop/run.sh${NC}"
-    echo -e "${DIM}Start with monitor: tmux new-session -d -s pi-loop '.loop/run.sh' \\; split-window -h 'watch -n 2 .loop/monitor.sh' \\; attach${NC}"
+    echo -e "${DIM}Start with monitor: tmux new-session -d -s pi-ralph-loop '.loop/run.sh' \\; split-window -h 'watch -n 2 .loop/monitor.sh' \\; attach${NC}"
 fi
 echo -e "${DIM}Updated: $(date '+%H:%M:%S')  |  Refresh: watch -n 2 .loop/monitor.sh${NC}"

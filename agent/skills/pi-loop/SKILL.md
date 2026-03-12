@@ -1,219 +1,180 @@
 ---
 name: pi-loop
-description: Create a requirements file from project context and run an autonomous development loop that executes tasks iteratively using fresh pi sessions. Use when the user wants to set up a Ralph-style autonomous loop, hands-off development cycle, continuous autonomous coding, or says things like "loop on this", "build this autonomously", "run a loop", or "set it and forget it."
+description: Schedule a prompt to run on a recurring interval or at a specific time using the cron extension. Use when the user says "loop", "every N minutes", "check on this periodically", "remind me", "schedule", "run this on a timer", or wants a prompt to fire repeatedly in the background without an active session.
 ---
 
-# Autonomous Development Loop
+# Schedule a Recurring or One-Shot Prompt
 
-Set up and run an autonomous development loop. Phase 1 interactively builds a requirements file from the project context and user input. Phase 2 launches a bash loop that calls `pi -p` repeatedly, working through tasks one at a time with fresh sessions, circuit breaker protection, and live progress monitoring.
-
-Do not use this for quick one-off edits or when the user wants interactive back-and-forth on implementation details.
-
----
-
-## Phase 1 — Gather Context and Build Requirements
-
-### 1.1 — Scan the project
-
-Use `Bash` to understand the project:
-
-```bash
-# Project structure
-find . -maxdepth 3 -type f \( -name "*.md" -o -name "*.json" -o -name "*.yaml" -o -name "*.yml" -o -name "*.toml" \) | grep -v node_modules | grep -v .git | head -30
-
-# Package info if available
-cat package.json 2>/dev/null | head -30
-cat pyproject.toml 2>/dev/null | head -20
-cat Cargo.toml 2>/dev/null | head -20
-
-# README
-cat README.md 2>/dev/null | head -50
-
-# Existing specs/plans
-ls artifacts/specs/ artifacts/plans/ 2>/dev/null
-```
-
-Use `Read` on any relevant files found (README, existing specs, AGENTS.md, etc).
-
-### 1.2 — Interview the user
-
-Use `ask_user` to understand what they want the loop to accomplish. Ask one question at a time:
-
-1. **Goal**: "What should the loop accomplish? Describe the end state."
-2. **Scope**: "What areas of the codebase should it touch? Any areas it should NOT touch?"
-3. **Validation**: "How should each task be validated? (tests, build, lint, manual check)"
-4. **Constraints**: "Any constraints? (specific frameworks, patterns, files to preserve)"
-
-Keep it to 3-5 questions. Extract what you need from project context to avoid asking obvious things.
-
-### 1.3 — Generate requirements
-
-Create the `.loop/` directory structure and write the requirements file.
-
-Use `Bash`:
-```bash
-mkdir -p .loop/logs
-```
-
-Use `Write` to create `.loop/requirements.md` with this structure:
-
-```markdown
-# Loop Requirements
-
-**Created:** <date>
-**Goal:** <one-line summary>
-**Validation:** <how to verify work — e.g., `npm test`, `npm run build`, `cargo test`>
-
-## Constraints
-- <constraint 1>
-- <constraint 2>
-
-## Tasks
-
-- [ ] Task 1: <clear, atomic task description>
-- [ ] Task 2: <clear, atomic task description>
-- [ ] Task 3: <clear, atomic task description>
-...
-
-## Context
-<relevant project context the loop agent needs — tech stack, key files, patterns>
-
-## Done Criteria
-<what "all done" looks like>
-```
-
-**Task writing rules:**
-- Each task must be atomic — completable in a single session
-- Each task must be independently verifiable
-- Order tasks by dependency (earlier tasks first)
-- Include 5-20 tasks. If the scope implies more, break it into phases and ask the user which phase to loop on.
-- Prefix dependent tasks with their dependency: "After Task 3: ..."
-
-### 1.4 — Confirm with user
-
-Show the generated requirements to the user using `Read` on `.loop/requirements.md`.
-
-Use `ask_user` with `type: "confirm"` to ask if they're happy with the requirements, or want to edit.
-
-If they want changes, use `ask_user` with `type: "editor"` to collect edits, then update the file.
-
-### 1.5 — Add to .gitignore
-
-Use `Bash` to ensure `.loop/` is gitignored:
-
-```bash
-if [ -f .gitignore ]; then
-  grep -q '^\.loop/' .gitignore || echo '.loop/' >> .gitignore
-else
-  echo '.loop/' > .gitignore
-fi
-```
+Parse the user's natural-language scheduling request, convert it to `cron_create` inputs, create the job, and confirm. This skill is the UX layer on top of the cron extension's tools.
 
 ---
 
-## Phase 2 — Configure and Launch the Loop
+## Step 1 — Parse the Request
 
-### 2.1 — Write the loop configuration
+Extract from the user's message:
 
-Use `Write` to create `.loop/config.sh`:
+- **Prompt**: what should pi do each time it fires
+- **Interval or time**: how often, or when
+- **One-shot vs recurring**: is this a single future event or a repeated task?
+- **Label**: short name for the job (infer from prompt if not explicit)
+- **CWD**: default to current directory unless specified
 
-```bash
-# Loop configuration
-MAX_ITERATIONS=50
-MAX_STUCK_COUNT=3
-TIMEOUT_MINUTES=15
-COOLDOWN_SECONDS=5
-VALIDATION_CMD="<from requirements>"
-GIT_SAFETY=true  # auto-checkpoint before each iteration, rollback on failure
-```
+### Interval Syntax
 
-Set `GIT_SAFETY=false` if the project isn't a git repo or the user doesn't want auto-commits.
+Support these natural patterns and convert to cron expressions:
 
-### 2.2 — Write the loop script
+| User says | Cron expression | Type |
+|-----------|----------------|------|
+| `every 5 minutes`, `5m` | `*/5 * * * *` | recurring |
+| `every 10 minutes`, `10m` | `*/10 * * * *` | recurring |
+| `every 30 minutes`, `30m` | `*/30 * * * *` | recurring |
+| `every hour`, `1h`, `every 60 minutes` | `0 * * * *` | recurring |
+| `every 2 hours`, `2h` | `0 */2 * * *` | recurring |
+| `every day at 9am` | `0 9 * * *` | recurring |
+| `every weekday at 9am` | `0 9 * * 1-5` | recurring |
+| `at 3pm`, `at 15:00` | compute ISO timestamp | once |
+| `in 45 minutes` | compute ISO timestamp | once |
+| `in 2 hours` | compute ISO timestamp | once |
+| `tomorrow at 9am` | compute ISO timestamp | once |
 
-Use `Write` to create `.loop/run.sh` with the content from [the loop script](scripts/loop.sh). Use `Read` on that script file to get the content, then write it to `.loop/run.sh`.
+**Interval defaults**: If no interval is specified, default to `every 10 minutes`.
 
-Make it executable:
-```bash
-chmod +x .loop/run.sh
-```
+**Seconds**: If the user says seconds (e.g., `30s`, `every 30 seconds`), round up to 1 minute and tell them: "Cron has minute-level granularity, so I've rounded to every 1 minute."
 
-### 2.3 — Write the monitor script
+**Odd intervals**: Intervals that don't divide evenly (e.g., `7m`, `90m`) should be mapped to the nearest clean cron expression. Tell the user what you picked. For example:
+- `7m` → `*/7 * * * *` (fires at minutes 0, 7, 14, 21, 28, 35, 42, 49, 56 — close enough)
+- `90m` → `0 */2 * * *` (every 2 hours — round from 1.5h and explain)
 
-Use `Write` to create `.loop/monitor.sh` with the content from [the monitor script](scripts/monitor.sh). Use `Read` on that script file to get the content, then write it to `.loop/monitor.sh`.
+**Trailing `every` clause**: The interval can appear at the start or end of the message:
+- `/loop 5m check the build` → every 5 minutes
+- `/loop check the build every 2 hours` → every 2 hours
 
-Make it executable:
-```bash
-chmod +x .loop/monitor.sh
-```
+### One-Shot Detection
 
-### 2.4 — Launch
+The request is one-shot if it uses:
+- `at <time>` (specific clock time)
+- `in <duration>` (relative future)
+- `tomorrow`, `next Monday`, etc.
+- `remind me` (usually one-shot)
 
-Ask the user how to launch:
-
-```
-Use `ask_user` with `type: "select"`:
-- "Launch with tmux monitoring (recommended)" 
-- "Launch in background (check .loop/logs/)"
-- "Don't launch yet, I'll start it manually"
-```
-
-**If tmux monitoring:**
-```bash
-tmux new-session -d -s pi-loop '.loop/run.sh 2>&1 | tee -a .loop/logs/latest.log'
-tmux split-window -h -t pi-loop 'watch -n 2 .loop/monitor.sh'
-tmux attach -t pi-loop
-```
-
-**If background:**
-```bash
-nohup .loop/run.sh > .loop/logs/latest.log 2>&1 &
-echo $! > .loop/.pid
-echo "Loop running in background (PID: $(cat .loop/.pid))"
-echo "Monitor: .loop/monitor.sh"
-echo "Logs: tail -f .loop/logs/latest.log"
-echo "Stop: kill $(cat .loop/.pid)"
-```
-
-**If manual:**
-Report the commands to run and exit.
+Otherwise assume recurring.
 
 ---
 
-## Phase 3 — Stopping, Skipping, and Resuming
+## Step 2 — Create the Job
 
-When the user comes back, they can:
+Call `cron_create` with the parsed inputs:
 
-- **Check status**: `.loop/monitor.sh` (or `watch -n 2 .loop/monitor.sh`)
-- **Stop**: `kill $(cat .loop/.pid)` or Ctrl+C in tmux
-- **Skip stuck task**: `touch .loop/.skip` — the loop will mark the current task as skipped (`[~]`) and move on
-- **Resume**: `.loop/run.sh` (it picks up from the first unchecked task)
-- **Review progress**: `cat .loop/requirements.md`
-- **Git rollback**: if `GIT_SAFETY=true`, each iteration is checkpointed. Failed iterations auto-rollback. Use `git log --oneline` to see checkpoints.
+```
+cron_create({
+  prompt: "<extracted prompt>",
+  scheduleType: "cron" | "once",
+  cron: "<cron expression>",        // for recurring
+  runAt: "<ISO timestamp>",          // for one-shot
+  label: "<short label>",
+  cwd: "<current directory>",
+})
+```
+
+The extension automatically:
+- Defaults `expiresAt` to 3 days for recurring jobs
+- Sets `concurrency` to `skip`
+- Computes `nextRunAt`
 
 ---
 
-## Report
+## Step 3 — Confirm
 
-After setting everything up, output:
+Report clearly:
 
-```text
-## Loop Ready
-
-Requirements: .loop/requirements.md
-Tasks: <N> tasks defined
-Validation: <validation command>
-Config: .loop/config.sh
-
-Loop script: .loop/run.sh
-Monitor: .loop/monitor.sh
-Logs: .loop/logs/
-
-Status: <launched with tmux | running in background (PID: X) | ready to launch manually>
-
-Commands:
-  Start:   .loop/run.sh
-  Monitor: .loop/monitor.sh  (or: watch -n 2 .loop/monitor.sh)
-  Stop:    kill $(cat .loop/.pid)
-  Resume:  .loop/run.sh  (auto-resumes from last incomplete task)
+For recurring:
 ```
+✅ Scheduled: "<label>"
+   Every <interval> (cron: <expression>)
+   Prompt: <prompt summary>
+   Next run: <time>
+   Expires: <3 days from now>
+   CWD: <directory>
+   Job ID: <id>
+```
+
+For one-shot:
+```
+✅ Scheduled: "<label>"
+   At <time>
+   Prompt: <prompt summary>
+   CWD: <directory>
+   Job ID: <id>
+```
+
+---
+
+## Step 4 — Remind About the Scheduler
+
+If this is the user's first job (check via `cron_list`), add:
+
+```
+💡 Make sure the background scheduler is installed: run /cron-install
+   Without it, jobs only fire while pi is open.
+```
+
+---
+
+## Limitations to Communicate
+
+When relevant, tell the user:
+
+- **Minute granularity**: cron can't fire more often than once per minute
+- **Fresh sessions**: each run is an independent `pi -p` session — no shared memory with the current session or between runs
+- **Context passing**: each run can call `cron_write_context` with its job ID to save a summary/context for the next run. This is automatically injected into the next run's prompt as `<previous-run-context>`. The job ID and instructions are included in every spawned prompt.
+- **3-day expiry**: recurring jobs expire after 3 days by default. To extend, recreate the job or set a custom `expiresAt`.
+- **No live session**: scheduled runs execute in the background without an interactive session. They have access to all tools but no user interaction.
+- **Overlap policy**: if a run is still going when the next tick fires, it's skipped (not queued)
+
+---
+
+## Managing Existing Jobs
+
+If the user asks about existing scheduled tasks:
+
+- **List**: call `cron_list` and format the results
+- **Delete**: call `cron_delete` with the job ID
+- **What's running?**: call `cron_list` and highlight running/recent jobs
+
+---
+
+## Examples
+
+### User: `/loop 5m check if the deployment finished`
+
+→ Recurring, every 5 minutes, prompt = "check if the deployment finished"
+→ `cron_create({ prompt: "check if the deployment finished", scheduleType: "cron", cron: "*/5 * * * *", label: "deployment-check" })`
+
+### User: `/loop check the build every 2 hours`
+
+→ Trailing interval, recurring, every 2 hours
+→ `cron_create({ prompt: "check the build", scheduleType: "cron", cron: "0 */2 * * *", label: "build-check" })`
+
+### User: `remind me at 3pm to push the release branch`
+
+→ One-shot at 3pm today
+→ `cron_create({ prompt: "remind me to push the release branch", scheduleType: "once", runAt: "<today 3pm ISO>", label: "push-release" })`
+
+### User: `in 45 minutes, check whether the integration tests passed`
+
+→ One-shot in 45 minutes
+→ `cron_create({ prompt: "check whether the integration tests passed", scheduleType: "once", runAt: "<now+45m ISO>", label: "integration-test-check" })`
+
+### User: `/loop 20m /review-pr 1234`
+
+→ Recurring, every 20 minutes, prompt = "/review-pr 1234"
+→ The scheduled prompt itself is a skill invocation — the spawned pi session will expand it.
+→ `cron_create({ prompt: "/review-pr 1234", scheduleType: "cron", cron: "*/20 * * * *", label: "review-pr-1234" })`
+
+### User: `what scheduled tasks do I have?`
+
+→ Call `cron_list` and format results.
+
+### User: `cancel the deploy check job`
+
+→ Call `cron_list`, find the matching job, call `cron_delete`.

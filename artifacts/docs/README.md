@@ -17,3 +17,4 @@ Documentation for pi-mono's coding-agent package — a minimal, extensible termi
 - [Web Fetch Tool](reference/web-fetch-tool.md) — Fetch URLs and receive clean, LLM-suitable content: HTML-to-text stripping, JSON pretty-printing, automatic truncation
 - [Skills](reference/skills.md) — Self-contained capability packages: structure, frontmatter, discovery locations, and skill repositories
 - [Auto-Delegate Extension](reference/auto-delegate-extension.md) — Automatic routing of prompts to subagents based on detected intent signals
+- [Cron Scheduled Prompts Extension](reference/cron-scheduled-prompts-extension.md) — Technical spec for durable prompt-based scheduled tasks using a minute-tick scheduler and fresh pi runs

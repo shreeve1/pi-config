@@ -8,6 +8,7 @@ agent/sessions/
 sessions/
 data/
 memory/
+/cron/
 
 # Session registries
 agent/cleon-sessions.json
