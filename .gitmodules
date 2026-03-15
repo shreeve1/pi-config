@@ -1,0 +1,6 @@
+[submodule "agent-stuff"]
+	path = agent-stuff
+	url = https://github.com/mitsuhiko/agent-stuff.git
+[submodule "pi-extensions"]
+	path = pi-extensions
+	url = https://github.com/tmustier/pi-extensions.git

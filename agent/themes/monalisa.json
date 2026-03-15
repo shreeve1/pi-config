@@ -1,0 +1,96 @@
+{
+  "$schema": "https://raw.githubusercontent.com/badlogic/pi-mono/main/packages/coding-agent/theme-schema.json",
+  "name": "monalisa",
+  "vars": {
+    "gold": "#f7d66a",
+    "goldBright": "#ffe598",
+    "goldMuted": "#c9a84a",
+    "amber": "#c36e28",
+    "amberLight": "#ff9566",
+    "rust": "#9b291c",
+    "rustBright": "#ff4331",
+    "crimson": "#9b1d29",
+    "crimsonBright": "#ff5b6a",
+    "olive": "#636232",
+    "oliveLight": "#b4b264",
+    "moss": "#588056",
+    "mossLight": "#8acd8f",
+    "slate": "#515c5d",
+    "slateLight": "#9eb2b4",
+    "brown": "#351b0e",
+    "brownMid": "#874228",
+    "bgDark": "#120b0d",
+    "bgMid": "#1a0f10",
+    "bgLight": "#2a1518",
+    "bgTool": "#1e1214",
+    "bgSuccess": "#1a2010",
+    "bgError": "#2a1012"
+  },
+  "colors": {
+    "accent": "gold",
+    "border": "amber",
+    "borderAccent": "goldBright",
+    "borderMuted": "brown",
+
+    "success": "mossLight",
+    "error": "rustBright",
+    "warning": "amber",
+
+    "text": "",
+    "muted": "slateLight",
+    "dim": "brownMid",
+    "thinkingText": "slateLight",
+
+    "selectedBg": "bgLight",
+    "userMessageBg": "bgMid",
+    "userMessageText": "",
+    "customMessageBg": "bgDark",
+    "customMessageText": "",
+    "customMessageLabel": "gold",
+
+    "toolPendingBg": "bgTool",
+    "toolSuccessBg": "bgSuccess",
+    "toolErrorBg": "bgError",
+    "toolTitle": "gold",
+    "toolOutput": "slateLight",
+
+    "toolDiffAdded": "mossLight",
+    "toolDiffRemoved": "crimsonBright",
+    "toolDiffContext": "brownMid",
+
+    "mdHeading": "gold",
+    "mdLink": "amberLight",
+    "mdLinkUrl": "slateLight",
+    "mdCode": "goldBright",
+    "mdCodeBlock": "oliveLight",
+    "mdCodeBlockBorder": "brownMid",
+    "mdQuote": "slateLight",
+    "mdQuoteBorder": "amber",
+    "mdHr": "brownMid",
+    "mdListBullet": "amber",
+
+    "syntaxComment": "brownMid",
+    "syntaxKeyword": "rustBright",
+    "syntaxFunction": "gold",
+    "syntaxVariable": "amberLight",
+    "syntaxString": "mossLight",
+    "syntaxNumber": "amber",
+    "syntaxType": "crimsonBright",
+    "syntaxOperator": "goldMuted",
+    "syntaxPunctuation": "slateLight",
+
+    "thinkingOff": "bgLight",
+    "thinkingMinimal": "#4a2a1e",
+    "thinkingLow": "#6a3a28",
+    "thinkingMedium": "#8a4a32",
+    "thinkingHigh": "#ca6a42",
+    "thinkingXhigh": "#ff8a52",
+
+    "bashMode": "oliveLight"
+  },
+  "export": {
+    "pageBg": "#120b0d",
+    "cardBg": "#1a0f10",
+    "infoBg": "#2a1518"
+  }
+}
