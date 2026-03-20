@@ -1,0 +1,71 @@
+/* Dark Neon Theme - Cyberpunk, Glow Shadows, Sharp Contrast */
+:root {
+  /* Colors - Dark with neon accents */
+  --color-primary: #00ffff;
+  --color-secondary: #ff00ff;
+  --color-accent: #00ff00;
+  --color-background: #0a0a0a;
+  --color-surface: #1a1a2e;
+  --color-text: #00ffff;
+  --color-text-muted: #808080;
+  --color-border: #00ffff;
+  --color-error: #ff0080;
+  --color-success: #00ff00;
+
+  /* Typography - Monospace, technical */
+  --font-family-heading: 'Courier New', 'IBM Plex Mono', monospace;
+  --font-family-body: 'Courier New', 'IBM Plex Mono', monospace;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 13px;
+  --font-size-lg: 14px;
+  --font-size-xl: 16px;
+  --font-size-2xl: 20px;
+  --font-weight-normal: 400;
+  --font-weight-bold: 700;
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.4;
+
+  /* Spacing - Compact, technical */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+
+  /* Borders & Radius - Sharp, no rounding */
+  --radius-none: 0;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-full: 0;
+  --border-width: 1px;
+
+  /* Shadows - Glowing neon */
+  --shadow-sm: 0 0 8px var(--color-primary), 0 0 16px var(--color-primary);
+  --shadow-md: 0 0 16px var(--color-primary), 0 0 32px var(--color-secondary);
+  --shadow-lg: 0 0 24px var(--color-primary), 0 0 48px var(--color-secondary);
+
+  /* Transitions - Snappy, technical */
+  --transition-fast: all 100ms linear;
+  --transition-normal: all 200ms linear;
+}
+
+/* Dark background with deep color */
+body {
+  background-color: var(--color-background);
+  color: var(--color-text);
+}
+
+/* Neon text glow for headings */
+h1, h2, h3, h4, h5, h6 {
+  text-shadow: 0 0 10px var(--color-primary), 0 0 20px var(--color-secondary);
+}
+
+/* Interactive glow */
+button:hover,
+a:hover {
+  text-shadow: 0 0 10px var(--color-accent);
+  border-color: var(--color-accent);
+}

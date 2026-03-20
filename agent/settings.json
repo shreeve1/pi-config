@@ -1,0 +1,11 @@
+{
+  "lastChangelogVersion": "0.61.0",
+  "defaultProvider": "anthropic",
+  "defaultModel": "claude-opus-4-6",
+  "defaultThinkingLevel": "high",
+  "quietStartup": true,
+  "skills": [],
+  "theme": "ember",
+  "hideThinkingBlock": true,
+  "transport": "sse"
+}

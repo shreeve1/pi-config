@@ -1,0 +1,86 @@
+{
+  "$schema": "https://raw.githubusercontent.com/badlogic/pi-mono/main/packages/coding-agent/src/modes/interactive/theme/theme-schema.json",
+  "name": "neon80s",
+  "vars": {
+    "hotpink":     "#ff2d78",
+    "cyan":        "#00ffff",
+    "magenta":     "#ff00ff",
+    "neongreen":   "#00ff41",
+    "neonyellow":  "#ffcc00",
+    "neonorange":  "#ff9933",
+    "neonpurple":  "#cc00ff",
+    "pink":        "#ff00aa",
+    "darkbg":      "#0d0015",
+    "darkpurple":  "#1a0030",
+    "midpurple":   "#2d0050",
+    "mutedpurple": "#cc44cc",
+    "dimpurple":   "#663366",
+    "borderDark":  "#4d1a66"
+  },
+  "colors": {
+    "accent":             "hotpink",
+    "border":             "pink",
+    "borderAccent":       "cyan",
+    "borderMuted":        "borderDark",
+
+    "success":            "neongreen",
+    "error":              "hotpink",
+    "warning":            "neonyellow",
+
+    "text":               "",
+    "muted":              "mutedpurple",
+    "dim":                "dimpurple",
+    "thinkingText":       "mutedpurple",
+
+    "selectedBg":         "midpurple",
+    "userMessageBg":      "darkpurple",
+    "userMessageText":    "",
+    "customMessageBg":    "darkbg",
+    "customMessageText":  "",
+    "customMessageLabel": "cyan",
+
+    "toolPendingBg":      "#0d001a",
+    "toolSuccessBg":      "#001a0d",
+    "toolErrorBg":        "#1a0008",
+    "toolTitle":          "cyan",
+    "toolOutput":         "",
+
+    "toolDiffAdded":      "neongreen",
+    "toolDiffRemoved":    "hotpink",
+    "toolDiffContext":    "dimpurple",
+
+    "mdHeading":          "magenta",
+    "mdLink":             "cyan",
+    "mdLinkUrl":          "mutedpurple",
+    "mdCode":             "neongreen",
+    "mdCodeBlock":        "",
+    "mdCodeBlockBorder":  "pink",
+    "mdQuote":            "mutedpurple",
+    "mdQuoteBorder":      "hotpink",
+    "mdHr":               "pink",
+    "mdListBullet":       "hotpink",
+
+    "syntaxComment":      "dimpurple",
+    "syntaxKeyword":      "hotpink",
+    "syntaxFunction":     "cyan",
+    "syntaxVariable":     "neonorange",
+    "syntaxString":       "neongreen",
+    "syntaxNumber":       "neonyellow",
+    "syntaxType":         "neonpurple",
+    "syntaxOperator":     "pink",
+    "syntaxPunctuation":  "mutedpurple",
+
+    "thinkingOff":        "borderDark",
+    "thinkingMinimal":    "#8800cc",
+    "thinkingLow":        "#aa00ff",
+    "thinkingMedium":     "pink",
+    "thinkingHigh":       "hotpink",
+    "thinkingXhigh":      "#ff0000",
+    "bashMode":           "cyan"
+  },
+  "export": {
+    "pageBg":  "#0d0015",
+    "cardBg":  "#1a0030",
+    "infoBg":  "#2d0050"
+  }
+}

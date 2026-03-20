@@ -1,0 +1,91 @@
+{
+  "$schema": "https://raw.githubusercontent.com/badlogic/pi-mono/main/packages/coding-agent/src/modes/interactive/theme/theme-schema.json",
+  "name": "ember",
+  "vars": {
+    "crimson":    "#fc595f",
+    "ruby":       "#d3494e",
+    "garnet":     "#a63c40",
+    "rosewood":   "#832e31",
+    "blush":      "#df9395",
+    "mauve":      "#ba8586",
+    "steel":      "#8b999c",
+    "ash":        "#5a6568",
+    "charcoal":   "#252525",
+    "smoke":      "#2a2d32",
+    "sage":       "#8bb889",
+    "amber":      "#e0a550",
+    "frost":      "#d2dadd",
+    "bgDark":     "#121212",
+    "bgBase":     "#151515",
+    "bgLight":    "#1c1c1c",
+    "bgGreenTint":"#141e14",
+    "bgRedTint":  "#1e1214"
+  },
+  "colors": {
+    "accent":             "crimson",
+    "border":             "garnet",
+    "borderAccent":       "crimson",
+    "borderMuted":        "charcoal",
+
+    "success":            "sage",
+    "error":              "crimson",
+    "warning":            "amber",
+
+    "text":               "",
+    "muted":              "steel",
+    "dim":                "ash",
+    "thinkingText":       "steel",
+
+    "selectedBg":         "smoke",
+    "userMessageBg":      "bgLight",
+    "userMessageText":    "",
+    "customMessageBg":    "bgDark",
+    "customMessageText":  "",
+    "customMessageLabel": "crimson",
+
+    "toolPendingBg":      "bgDark",
+    "toolSuccessBg":      "bgGreenTint",
+    "toolErrorBg":        "bgRedTint",
+    "toolTitle":          "crimson",
+    "toolOutput":         "steel",
+
+    "toolDiffAdded":      "sage",
+    "toolDiffRemoved":    "crimson",
+    "toolDiffContext":     "ash",
+
+    "mdHeading":          "crimson",
+    "mdLink":             "blush",
+    "mdLinkUrl":          "steel",
+    "mdCode":             "mauve",
+    "mdCodeBlock":        "",
+    "mdCodeBlockBorder":  "charcoal",
+    "mdQuote":            "steel",
+    "mdQuoteBorder":      "garnet",
+    "mdHr":               "charcoal",
+    "mdListBullet":       "ruby",
+
+    "syntaxComment":      "ash",
+    "syntaxKeyword":      "crimson",
+    "syntaxFunction":     "blush",
+    "syntaxVariable":     "frost",
+    "syntaxString":       "sage",
+    "syntaxNumber":       "amber",
+    "syntaxType":         "mauve",
+    "syntaxOperator":     "ruby",
+    "syntaxPunctuation":  "steel",
+
+    "thinkingOff":        "charcoal",
+    "thinkingMinimal":    "rosewood",
+    "thinkingLow":        "garnet",
+    "thinkingMedium":     "ruby",
+    "thinkingHigh":       "crimson",
+    "thinkingXhigh":      "#ff2d2d",
+
+    "bashMode":           "amber"
+  },
+  "export": {
+    "pageBg":  "#121212",
+    "cardBg":  "#1c1c1c",
+    "infoBg":  "#252525"
+  }
+}

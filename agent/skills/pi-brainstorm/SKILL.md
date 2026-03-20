@@ -1,0 +1,219 @@
+---
+name: pi-brainstorm
+description: Use when the user wants to brainstorm, explore ideas, compare directions, think creatively, generate options before implementation, or re-plan after validation shows a plan is not feasible for the current repo.
+---
+
+# Pi Brainstorm
+
+Use this skill when the goal is collaborative idea generation and directional thinking, especially before committing to a build plan. It is also the required re-planning skill when `pi-dev-validate` determines a plan is `not-feasible` for the current repository. Do not use it when the user already wants a concrete implementation plan or direct code changes; in those cases, finish the brainstorming quickly or hand off to planning.
+
+---
+
+## Validate Handoff Mode
+
+When this skill is invoked from `pi-dev-validate` because a plan is `not-feasible`, do not treat the session as open-ended ideation.
+
+Required behavior in this mode:
+1. Read the structured feasibility result from validate first.
+2. Expect this handoff shape when available: `status`, `critical_blockers`, `missing_prerequisites`, `scope_concerns`, `repo_fit_summary`, `recommended_action`, and the original failed plan goal.
+3. Restate the blockers in plain English so the user understands why the previous plan did not fit the repo.
+4. Treat those blockers as hard constraints for brainstorming.
+5. Focus on producing a better-fit replacement direction, a smaller phased approach, or a prerequisite-first plan.
+6. Do not drift into imaginative options that ignore the current repo state.
+7. Best next step after this mode is usually a new implementation plan, not immediate coding.
+
+Typical blocker inputs from validate may include:
+- missing dependencies or services
+- nonexistent file references
+- architecture assumptions not present in the repo
+- plan scope that is too large for one execution pass
+- sequencing or prerequisite problems
+
+If blockers are missing or underspecified, ask for them before continuing.
+Do not proceed in validate-handoff mode without at least one concrete feasibility finding from `pi-dev-validate` such as a blocker, missing prerequisite, scope concern, or repo-fit summary.
+
+## Phase 1 — Capture the Topic
+
+Start by identifying the topic and any optional project path or project context already present in the conversation.
+
+1. If the topic is missing or vague, use `ask_user` to get it.
+2. If the user references a local project path, verify it exists with `bash`.
+3. If this was entered from `pi-dev-validate`, capture the failed plan goal plus the structured feasibility result as the starting context.
+4. If you will save notes later, ensure `artifacts/brainstorming/` exists with `bash`.
+
+Keep the setup light. The point is to create enough structure for a productive session, not to slow the conversation down.
+
+## Phase 2 — Ask Whether to Use Project Context
+
+Do not assume a project review is wanted just because a repository or path is available.
+
+If there is a relevant local project, current repository, or referenced codebase, ask the user whether to include project context before reviewing files. A good `ask_user` `select` is:
+- yes, review the project first
+- no, brainstorm without project review
+- decide after a quick topic setup
+
+If the user chooses project review, do a fast review before brainstorming.
+If the user chooses no review, skip directly to clarification and ideation.
+If the user wants to decide later, continue the intake and revisit the choice only if project context would materially improve the brainstorm.
+
+When project review is approved, use `bash` and `read` to understand:
+- what the project does
+- the stack and architecture
+- notable strengths, constraints, and gaps
+- where new ideas would fit naturally
+
+Summarize the findings briefly before moving on.
+
+## Phase 3 — Clarify Intent Interactively
+
+Before generating ideas, restate your current understanding in one or two sentences.
+If this came from `pi-dev-validate`, include both: (a) the original goal of the failed plan and (b) the blockers that must shape the replacement approach.
+
+Then use `ask_user` to gather the minimum context needed to make the brainstorming useful. Prefer 1-2 short interactions over a long interview.
+
+Good topics to clarify:
+- what is driving the question
+- what constraints matter most
+- what success looks like
+- whether the user wants broad exploration or practical next steps
+- whether the user wants web research or a no-research brainstorm
+- if entered from `pi-dev-validate`, whether the user wants: a smaller replacement plan, a prerequisite-first plan, or a phased roadmap
+
+When research preference is not already explicit, ask directly with `ask_user` using a `select` such as:
+- brainstorm only, no web research
+- brainstorm with targeted web research
+- decide after seeing angles
+
+Treat this choice as a steering input, not a default assumption.
+
+Use `select` when a few common options fit. Use `input` or `editor` when the user needs room to explain nuance.
+
+## Phase 4 — Propose Research Angles
+
+Generate 3-5 distinct angles to explore. Make them:
+- varied across technical, user, product, operational, or market perspectives
+- specific enough to research
+- shaped by the user's stated priorities
+
+Present the angles and ask the user how to proceed with `ask_user`.
+
+A good approval prompt is a `select` with options such as:
+- proceed with all angles
+- narrow to the top 3
+- adjust the angles first
+
+If the user wants changes, revise the angles and confirm again.
+
+## Phase 5 — Research in Parallel When External Evidence Matters
+
+Honor the user's explicit research preference.
+
+- If they chose no web research, skip this phase entirely and brainstorm from project context plus reasoning.
+- If they chose targeted web research, use `subagent` in parallel to investigate the selected angles.
+- If they asked to decide later, recommend whether research is worth it after angles are proposed, then confirm with `ask_user` before searching.
+
+Do not silently perform web research just because it might help. Make the choice visible.
+
+When research is approved, each subagent should:
+1. research one angle using `web_search` and `web_fetch`
+2. return 3-5 concise insights
+3. call out any surprising or contrarian findings
+
+Use prompts like:
+
+```text
+Research this brainstorming angle for the topic "<topic>": <angle>.
+
+Context:
+<short context block>
+
+Instructions:
+1. Use web_search to find relevant sources.
+2. Use web_fetch on the most relevant 2-3 results.
+3. Return 3-5 concise insights.
+4. Note any surprising or contrarian findings.
+5. Keep the response compact and decision-oriented.
+```
+
+If the topic is mainly internal, speculative, or project-specific, recommend skipping web research unless the user explicitly wants external signals.
+
+## Phase 6 — Synthesize and Explore Ideas
+
+Combine project context, user constraints, and any research into a short briefing:
+- key themes
+- notable insights
+- tensions or trade-offs
+- open questions
+
+Then shift into collaborative ideation.
+
+1. Seed the conversation with 2-4 promising directions.
+2. Ask the user which direction resonates most using `ask_user` when a structured choice is helpful.
+3. Build on their answer with alternatives, combinations, and "what if" variants.
+4. Periodically synthesize what has emerged so the session stays coherent.
+5. If entered from `pi-dev-validate`, make every direction explicitly repo-fit: show how it avoids the failed plan's blockers and whether it is best framed as a replacement plan, prerequisite plan, or phased sequence.
+
+Keep the tone energetic and collaborative. The goal is exploration, not premature convergence.
+
+## Phase 7 — Wrap Up and Capture Artifacts
+
+When the user is ready to stop, summarize:
+- the strongest ideas
+- the most important trade-offs
+- likely next steps
+
+Ask whether they want the session saved. If yes:
+1. create `artifacts/brainstorming/` if needed
+2. write a markdown summary to `artifacts/brainstorming/brainstorm-<topic-slug>-<date>.md`
+
+Suggested sections:
+- Topic
+- Context
+- Key themes
+- Candidate directions
+- Recommended next steps
+
+If the conversation naturally leads into execution, suggest the next skill or workflow, such as creating an implementation plan.
+If this session came from `pi-dev-validate`, the default next step should be a new implementation plan that explicitly incorporates the feasibility constraints discovered during validation.
+
+## Output Format
+
+When saving a summary, use this structure:
+
+```markdown
+# Brainstorm: <topic>
+
+## Context
+<what prompted the session>
+
+## Key Themes
+- <theme>
+
+## Candidate Directions
+### <direction 1>
+- benefits
+- risks
+- open questions
+
+### <direction 2>
+- benefits
+- risks
+- open questions
+
+## Recommended Next Steps
+- <next step>
+```
+
+## Report
+
+After completing the skill's work, report:
+- whether this was a normal brainstorm or a `pi-dev-validate` handoff
+- what feasibility blockers or repo-fit constraints shaped the session
+- what project-context mode was chosen: review first, no project review, or decide later
+- whether project review was actually performed
+- what research mode was chosen: no research, targeted web research, or decide later
+- whether research was actually performed
+- the main ideas generated
+- which direction best fits the current repo
+- any file written and its path
+- the best next step for the user

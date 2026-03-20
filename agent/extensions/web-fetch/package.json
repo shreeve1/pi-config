@@ -1,0 +1,13 @@
+{
+  "name": "pi-web-fetch",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "linkedom": "^0.18.12",
+    "puppeteer": "^24.38.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

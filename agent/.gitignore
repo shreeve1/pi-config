@@ -1,0 +1,17 @@
+# Secrets
+auth.json
+models.json
+
+# Session & runtime data
+sessions/
+*-sessions.json
+*-sessions-registry.json
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# Cache
+__pycache__/
+*.pyc
+.DS_Store
