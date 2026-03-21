@@ -2,7 +2,7 @@
   "lastChangelogVersion": "0.61.1",
   "defaultProvider": "openai",
   "defaultModel": "gpt-5.2-pro",
-  "defaultThinkingLevel": "medium",
+  "defaultThinkingLevel": "low",
   "quietStartup": true,
   "skills": [],
   "theme": "ember",
