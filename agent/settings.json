@@ -1,11 +1,16 @@
 {
-  "lastChangelogVersion": "0.61.0",
-  "defaultProvider": "anthropic",
-  "defaultModel": "claude-opus-4-6",
-  "defaultThinkingLevel": "high",
+  "lastChangelogVersion": "0.61.1",
+  "defaultProvider": "openai",
+  "defaultModel": "gpt-5.2-pro",
+  "defaultThinkingLevel": "medium",
   "quietStartup": true,
   "skills": [],
   "theme": "ember",
   "hideThinkingBlock": true,
-  "transport": "sse"
+  "transport": "sse",
+  "packages": [
+    "npm:lsp-pi"
+  ],
+  "collapseChangelog": true,
+  "doubleEscapeAction": "tree"
 }
