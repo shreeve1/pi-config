@@ -11,7 +11,7 @@ This reference defines the complete pi skill system: locations, structure, front
 
 ## Skill Structure
 
-A skill is a directory with a `SKILL.md` file. Everything else is freeform:
+A skill is a directory with a `SKILL.md` file. Everything else is optional and freeform:
 
 ```
 my-skill/

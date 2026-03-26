@@ -30,7 +30,7 @@ Work through these steps in order, skipping only those that clearly do not apply
 8. Decide the next workflow handoff
 9. Report the final build status
 
-The goal is not maximum parallelism. The goal is safe, dependency-aware progress in an isolated branch when implementation could affect the current checkout, followed by an explicit decision about testing or merge.
+The goal is not maximum parallelism. The goal is safe, dependency-aware progress followed by an explicit decision about testing or merge.
 
 ---
 
@@ -51,60 +51,35 @@ Once confirmed, use `read` to inspect the selected plan for context.
 
 ## Phase 2 - Establish the Execution Workspace
 
-Before implementation begins, decide whether work should continue in the current checkout or in a git worktree.
+Before implementation begins, set up the working branch.
 
-### Decision: worktree or in-place?
+### Branch setup
 
-Work in-place if ANY of these are true:
-- not a git repository
-- already inside a non-primary linked worktree (continue there)
-- the user explicitly requested in-place changes
+If on `main`, `master`, or another shared/protected branch, create a feature branch:
+- derive the branch name from the plan topic if the user hasn't supplied one
+- use kebab-case with a `feat/`/`fix/`/`refactor/`/`chore/` prefix when obvious
+- if the user provided a feature branch name, use that
 
-Prefer a worktree if:
-- on `main`, `master`, or another shared/protected branch
-- the plan involves multi-file implementation work
-- the user provided a feature branch name
+If already on an appropriate feature branch, continue there.
 
-### Creating the worktree
-
-**Invoke the `pi-worktree` skill** to handle all worktree setup. Pass it:
-- the desired branch name (derived from plan topic if not user-supplied, kebab-case, with `feat/`/`fix/`/`refactor/`/`chore/` prefix when obvious)
-- the plan's validation commands for baseline checks
-
-The `pi-worktree` skill handles directory selection, .gitignore safety, branch conflicts, creation, and bootstrap automatically. It returns the worktree path and branch name.
-
-Capture the resulting path for all subsequent `subagent` calls that support `cwd`.
+If the project is not a git repository, skip branch setup and work in-place as-is.
 
 ### Baseline verification
 
-After worktree creation:
+Before starting implementation:
 - Prefer validation commands from the plan's `Validation Commands` section
-- Before running each baseline command, verify referenced test/file paths exist in the execution workspace
-- If a referenced path is missing, run Phase 2.5 provenance checks before declaring baseline failure
+- Before running each baseline command, verify referenced test/file paths exist in the current workspace
+- If a referenced path is missing, report it clearly before declaring baseline failure
 
 Baseline failure policy:
-- if bootstrap or baseline verification fails before any implementation work starts, treat that as a pre-existing issue unless provenance checks show a missing-baseline mismatch
+- if baseline verification fails before any implementation work starts, treat that as a pre-existing issue
 - report the failing command and the relevant output concisely
 - ask the user whether to stop and investigate, continue despite the dirty baseline, or switch back to planning/validation
 - do not silently proceed past a failing baseline
 
-Report the selected execution path, branch name, and baseline status clearly before moving on.
+Report the current branch and baseline status clearly before moving on.
 
-### Phase 2.5 - Preflight Baseline Provenance (required)
-
-Before executing tasks, verify the selected workspace contains the plan's expected baseline files/tests.
-
-1. From the plan's `Relevant Files` and `Validation Commands`, extract must-exist paths.
-2. In the execution workspace, verify each path exists.
-3. If using a worktree and required files are missing, compare against the source checkout to detect this common case:
-   - files exist in primary checkout but not in worktree because they are uncommitted local changes.
-4. If this mismatch is detected, STOP and ask the user to choose one:
-   - `Promote baseline first` (commit/cherry-pick/patch the prerequisite changes into branch history)
-   - `Run in-place` (accept higher risk)
-   - `Copy prerequisite files into worktree` (explicit, scoped)
-5. Do not start wave execution until prerequisite baseline is resolved.
-
-This prevents false baseline failures like "No test files found" caused by worktrees starting from committed history only.
+---
 
 ## Phase 3 - Load Plan Progress
 
@@ -165,8 +140,6 @@ Apply these rules in priority order:
 
 For each wave, write a brief summary like:
 
-If execution is happening in a worktree, note that path and branch in the wave summary so later verification and follow-up commands stay in the same workspace.
-
 ```text
 Wave 1: [1.1], [1.2]
 Reason: both tasks are ready and modify separate areas
@@ -187,8 +160,6 @@ Before launching a wave:
 - include outputs or constraints from earlier completed waves if needed
 
 Use `todo_write` to create or update a session todo list for the current wave.
-
-If using a worktree, include the worktree path and branch in the surrounding execution notes you pass to subagents so they operate in the isolated checkout rather than the original repository path.
 
 Each todo should include:
 - stable task ID
@@ -214,7 +185,6 @@ For independent tasks, use `subagent` with parallel tasks. **Inline the full tas
   "tasks": [
     {
       "agent": "worker",
-      "cwd": "<EXECUTION_PATH>",
       "task": "## Task [N.M]: <task title>\n\n<full task description from plan>\n\n### Context\n<any relevant notes from earlier waves, dependencies, or plan sections>\n\n### Relevant files\n<list files this task will likely touch>\n\n### Instructions\n- Implement only this task\n- Do not work on other tasks or do unrelated cleanup\n- When finished, report using this format:\n\n```\nStatus: complete | partial | blocked\nFiles changed:\n- <path> - <what changed>\n- <path> - <what changed>\nKey decisions:\n- <any non-obvious choice you made>\nBlockers:\n- <anything preventing completion, or \"none\">\n```"
     }
   ]
@@ -230,7 +200,6 @@ If tasks are tightly coupled, overlapping, or too small to benefit from parallel
 Every subagent prompt must:
 - include the full task description inline (do not rely on the subagent reading the plan)
 - include relevant context from earlier waves or the plan
-- specify the execution path via `cwd` when using a worktree
 - require the structured report format shown above
 - tell the subagent not to work on other tasks or do opportunistic refactors
 
@@ -275,7 +244,7 @@ Do not mix plan tools and manual mode. Stay consistent with whichever mode was e
 
 Do not report success based only on task execution. Verify the work.
 
-Use validation evidence from the plan where available. Run verification from the same checkout where implementation happened; if a worktree was used, keep all verification commands in that worktree.
+Use validation evidence from the plan where available.
 - commands listed in `## Validation Commands`
 - relevant test commands
 - build, lint, or typecheck commands
@@ -316,25 +285,25 @@ Stop when:
 After implementation tasks are complete and the relevant build-side verification has succeeded, ask the user what they want to do next.
 
 Use `ask_user` with a focused `select` prompt. The default options should be:
-- `Move to pi-dev-test in this worktree` (recommended when tests haven't been run)
+- `Run tests with pi-dev-test` (recommended when tests haven't been run)
 - `Merge and clean up`
-- `Keep the worktree open for more changes`
+- `Keep working on this branch`
 
 Decision rules:
-- if testing has not yet been run at the level implied by the plan, recommend `Move to pi-dev-test in this worktree`
+- if testing has not yet been run at the level implied by the plan, recommend `Run tests with pi-dev-test`
 - if the user explicitly asked for build-only work and verification is already sufficient, offer merge more neutrally
 - if validation or verification failed, do not offer merge as the recommended path
-- if the current workspace is not a git repo or not on an isolated branch, explain that merge guidance is not applicable and report the current state instead
+- if the current workspace is not a git repo or not on a feature branch, explain that merge guidance is not applicable and report the current state instead
 
 If the user chooses testing:
-- clearly report the worktree path, branch, and plan path that `pi-dev-test` should use
-- state that testing should happen before merge so verification and integration happen in the same isolated workspace
+- clearly report the branch and plan path that `pi-dev-test` should use
+- state that testing should happen before merge
 
 If the user chooses merge:
-- invoke the `pi-merge` skill, which handles the entire merge, push, worktree removal, and branch cleanup with one confirmation
+- invoke the `pi-merge` skill, which handles the merge, push, and branch cleanup with one confirmation
 
 If the user chooses to keep working:
-- report that the worktree remains the source of truth for further edits and testing
+- report that the current branch remains the workspace for further edits and testing
 
 ---
 
@@ -349,7 +318,6 @@ When implementation and verification succeed, report:
 
 Plan: <plan name>
 File: <PATH_TO_PLAN>
-Worktree: <path or "none">
 Branch: <branch or "none">
 
 Execution Summary:
@@ -362,7 +330,7 @@ Verification:
 - <command/result>
 
 Next Step Decision:
-- Selected: <move to pi-dev-test | merge into main | keep working>
+- Selected: <run tests | merge | keep working>
 - Recommendation: <brief reason>
 
 Files Modified:
