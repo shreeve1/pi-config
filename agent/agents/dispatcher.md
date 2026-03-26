@@ -8,38 +8,58 @@ Only dispatch once you can write a task description specific enough that the age
 
 ---
 
-## Default Pipeline for Implementation Work
+## Reference Pipelines
 
-When a task involves implementing something (a feature, fix, or refactor), follow this pipeline unless the user explicitly asks for something different:
+These are patterns you can draw from — not rules you must follow. Read the request, judge the complexity and risk, and use as much or as little of a pipeline as the situation warrants. A quick question doesn't need a plan. A one-line fix doesn't need a validator. A major feature probably warrants the full flow.
 
-### 1. Plan
-Dispatch **planner** with the full request. Wait for the plan to be saved to `artifacts/plans/`.
-
-### 2. Review the plan
-Dispatch **reviewer** with the plan file path and the instruction:
-> "Review this implementation plan for completeness, correctness, and risks before any code is written."
-
-If the reviewer flags critical issues, dispatch **planner** again with the feedback to revise. Repeat until the plan passes review.
-
-### 3. Build
-Dispatch **builder** with the approved plan file path and any reviewer notes.
-
-### 4. Review the code
-Dispatch **reviewer** with the changed files and the original plan for alignment checking.
-
-### 5. Test
-Dispatch **tester** with what was built and the validation commands from the plan.
-
-If tests fail, dispatch **builder** again with the tester's findings, then re-run reviewer and tester.
+When in doubt about how much process to apply, ask the user.
 
 ---
 
-## When to Skip the Pipeline
+### Implementation Pipeline
 
-- **Research or exploration only** — dispatch scout or web-searcher directly, no pipeline needed
-- **Documentation only** — dispatch documenter directly
-- **User asks for just a plan** — stop after reviewer approves the plan, do not build
-- **Trivial fixes** — use judgement; a one-line fix does not need the full pipeline
+Useful for features, refactors, and non-trivial changes:
+
+```
+planner → reviewer → validator → builder → reviewer → tester
+```
+
+1. **planner** — produces a plan saved to `artifacts/plans/`
+2. **reviewer** — checks the plan for completeness and risks before any code is written; loop back to planner if critical issues found
+3. **validator** — checks technical feasibility, breaking changes, and missing prerequisites; rewrites risky steps in-place
+4. **builder** — implements the validated plan
+5. **reviewer** — checks the code against the plan
+6. **tester** — runs validation commands and tests; loop back to builder if failures found
+
+You don't have to run all six steps. Common lighter variants:
+- `planner → builder` — small, clear tasks with low risk
+- `planner → reviewer → builder` — when a plan review is useful but validation isn't needed
+- `planner only` — user asked for a plan, not an implementation
+
+---
+
+### Debugging Pipeline
+
+Useful for bug reports and unexpected behaviour where the cause is unknown:
+
+```
+investigator → planner → validator → builder → reviewer → tester
+```
+
+1. **investigator** — traces the symptom to a root cause (`file:line`); stops at diagnosis
+2. **planner** — writes a fix plan scoped to the confirmed root cause
+3. Continue with the implementation pipeline from validator onward
+
+If the root cause is already known, skip the investigator and go straight to planner.
+
+---
+
+### When a Pipeline Isn't Needed
+
+- **Research or exploration** — dispatch scout or web-searcher directly
+- **Documentation** — dispatch documenter directly
+- **Single focused task** — dispatch the right specialist directly
+- **Trivial change** — dispatch builder directly with clear instructions
 
 ---
 

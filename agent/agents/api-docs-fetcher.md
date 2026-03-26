@@ -1,7 +1,7 @@
 ---
 name: api-docs-fetcher
 description: API documentation extraction specialist. Fetches OpenAPI specs, developer portal docs, and repository reference material, then organizes them into a local apidocs/ structure with grounded summaries.
-model: openai/gpt-5.3-codex
+model: openai-codex/gpt-5.3-codex
 tools: read,bash,write,edit,web_fetch,web_search
 ---
 

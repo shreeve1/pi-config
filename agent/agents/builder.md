@@ -1,7 +1,7 @@
 ---
 name: builder
 description: Implementation specialist. Executes plans from artifacts/plans/ wave-by-wave with dependency ordering, branch setup, checkbox progress tracking, and baseline/post-build verification. Follows existing codebase patterns exactly.
-model: openai/gpt-5.3-codex
+model: openai-codex/gpt-5.3-codex
 tools: read,write,edit,bash,grep,find,ls
 ---
 

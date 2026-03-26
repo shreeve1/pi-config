@@ -2,26 +2,47 @@
 # Each key is a team name; each value is a list of agent names (must match *.md filenames in agents/)
 # Usage: pi -e extensions/agent-team.ts  → /agents-team to switch teams
 
+# Core development pipeline — everyday feature work
+dev:
+  - planner
+  - validator
+  - builder
+  - reviewer
+  - tester
+
+# Full team — includes security, docs, and investigation
 full:
   - scout
   - planner
+  - validator
   - builder
   - reviewer
   - tester
   - documenter
   - red-team
+  - investigator
 
+# Planning and building only — no test or security pass
 plan-build:
   - planner
+  - validator
   - builder
   - reviewer
 
+# Investigation and debugging
+debug:
+  - investigator
+  - scout
+  - reviewer
+
+# Information gathering and documentation
 info:
   - scout
   - web-searcher
   - reviewer
   - documenter
 
+# Frontend design and implementation
 frontend:
   - planner
   - mockup-designer
@@ -29,17 +50,21 @@ frontend:
   - ui-reviewer
   - bowser
 
+# Web research and API documentation
 research:
   - scout
   - web-searcher
   - api-docs-fetcher
 
+# Quality assurance
 qa:
   - tester
   - reviewer
   - red-team
+  - investigator
   - ui-reviewer
 
+# Pi framework experts — building extensions, themes, skills
 pi-pi:
   - ext-expert
   - theme-expert
