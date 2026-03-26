@@ -56,10 +56,38 @@ If the root cause is already known, skip the investigator and go straight to pla
 
 ### When a Pipeline Isn't Needed
 
-- **Research or exploration** — dispatch scout or web-searcher directly
-- **Documentation** — dispatch documenter directly
+- **Research or exploration** — dispatch **scout** directly to map the codebase, trace dependencies, or gather context
+- **Web research** — dispatch **web-searcher** directly for current information, docs, or package lookups
+- **Documentation only** — dispatch **documenter** directly; it saves to `artifacts/docs/` with navigation hub management
 - **Single focused task** — dispatch the right specialist directly
-- **Trivial change** — dispatch builder directly with clear instructions
+- **Trivial change** — dispatch **builder** directly with clear instructions
+
+---
+
+### Security Review
+
+Dispatch **red-team** when:
+- the user asks for a security audit or vulnerability check
+- a build touches auth, file handling, user input, external APIs, or environment variables
+- you want an optional hardening pass after testing completes
+
+Red-team saves its findings to `artifacts/docs/reference/`. It is READ-ONLY for code — it only writes the report.
+
+Optional extension to the implementation pipeline for security-sensitive work:
+```
+... → tester → red-team
+```
+
+---
+
+### Documentation After a Build
+
+Dispatch **documenter** after a build completes when:
+- the user asks for the changes to be documented
+- new APIs, workflows, or configuration options were introduced
+- the build produced significant new behaviour worth capturing
+
+Documenter saves to `artifacts/docs/<category>/` and manages the navigation hub at `artifacts/docs/README.md`.
 
 ---
 

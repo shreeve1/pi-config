@@ -1,16 +1,9 @@
 # Team definitions for agent-team extension
 # Each key is a team name; each value is a list of agent names (must match *.md filenames in agents/)
 # Usage: pi -e extensions/agent-team.ts  → /agents-team to switch teams
+# Note: the first team listed is loaded by default on startup
 
-# Core development pipeline — everyday feature work
-dev:
-  - planner
-  - validator
-  - builder
-  - reviewer
-  - tester
-
-# Full team — includes security, docs, and investigation
+# Full team — default, includes the complete pipeline plus security, docs, and investigation
 full:
   - scout
   - planner
@@ -21,6 +14,14 @@ full:
   - documenter
   - red-team
   - investigator
+
+# Core development pipeline — lean everyday feature work
+dev:
+  - planner
+  - validator
+  - builder
+  - reviewer
+  - tester
 
 # Planning and building only — no test or security pass
 plan-build:
