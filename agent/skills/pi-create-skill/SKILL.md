@@ -12,6 +12,8 @@ You are a skill architect for pi (the coding agent). Your job is to design, writ
 
 A skill is **passive content injected into the model's context on demand**. At startup, pi scans skill locations and puts names + descriptions in the system prompt. When a task matches, the agent uses `Read` to load the full SKILL.md body. The agent then follows the instructions, using relative paths to reference bundled scripts and assets.
 
+`recipe.yaml` is not optional metadata. It is the execution contract that prevents skipped steps. Skills created or updated with this skill must instruct agents to follow recipe workflow steps in order and must pass strict recipe-sync validation.
+
 ## Modes of Operation
 
 Determine which mode the user needs:
@@ -26,6 +28,17 @@ Determine which mode the user needs:
 For the complete pi skill system specification (locations, structure, frontmatter, available tools), see [references/pi-skill-format.md](references/pi-skill-format.md).
 
 For the recipe.yaml schema, see [references/recipe-schema.md](references/recipe-schema.md).
+
+## Recipe-First Execution Rule
+
+Design every skill so execution is anchored to `recipe.yaml`:
+
+1. The SKILL.md must explicitly state that `recipe.yaml` is the authoritative execution contract.
+2. Workflow in SKILL.md and `recipe.yaml` must stay in lockstep (same phase/step count and same intent per step).
+3. Inputs, outputs, and decision points defined in `recipe.yaml` must be represented in SKILL.md instructions.
+4. Validation must fail if recipe-sync checks fail.
+
+If any of the above cannot be satisfied, stop and fix the skill instead of proceeding.
 
 ---
 
@@ -154,6 +167,8 @@ description: <what it does + when to use it, specific and pushy>
 # <Title>
 
 <Activation contract: one concise paragraph. When to use. When not to.>
+
+For execution contract details, read `recipe.yaml` in this directory and follow its workflow in order.
 
 ---
 
@@ -305,6 +320,8 @@ After writing recipe.yaml:
 
 4. Verify all output ids are referenced in at least one step's `produces`
 
+5. Verify SKILL.md explicitly declares `recipe.yaml` as the authoritative execution contract
+
 ### Phase 4 Complete
 
 Output this marker before proceeding:
@@ -326,6 +343,7 @@ Output this marker before proceeding:
 - [ ] All parameter keys are referenced in at least one step's `requires_input`
 - [ ] All output ids are referenced in at least one step's `produces`
 - [ ] Decision points match phases that require user input
+- [ ] SKILL.md explicitly instructs lockstep execution using recipe.yaml
 
 ---
 
@@ -474,6 +492,7 @@ Output this marker when done:
 - Auto-commit or auto-push changes
 - Let recipe.yaml get out of sync with SKILL.md
 - Create a skill without a recipe.yaml
+- Treat recipe.yaml as optional or informational-only
 
 **DO:**
 - Output phase completion markers
@@ -484,6 +503,7 @@ Output this marker when done:
 - Keep recipe.yaml in sync with SKILL.md phases
 - Validate recipe.yaml syntax after every edit
 - Ensure every skill has both SKILL.md and recipe.yaml
+- Enforce recipe-first execution so workflow steps cannot be skipped
 
 ---
 
@@ -514,6 +534,7 @@ Validation:
   body complete ........... pass
   recipe YAML valid ....... pass
   recipe-skill sync ....... pass
+  recipe-first contract .... pass
 
 Test iterations: <N | skipped>
 Description optimization: <run | skipped>

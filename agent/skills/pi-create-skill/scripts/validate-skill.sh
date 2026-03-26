@@ -74,17 +74,37 @@ if [ "$DESC_LEN" -gt 1024 ]; then
 fi
 echo "✓ description length: $DESC_LEN chars"
 
-# Count phases (## Phase N — with em-dash, not templates with colon)
-PHASE_COUNT=$(grep -cE '^## Phase [0-9]+ —' "$SKILL_FILE" || echo "0")
-echo "✓ phases found: $PHASE_COUNT"
-
-# Count phase completion markers
+# Count phases/markers/checkpoints outside fenced code blocks
+PHASE_COUNT=$(awk 'BEGIN{in_code=0; c=0} /^```/{in_code=!in_code; next} !in_code && /^## Phase [0-9]+/{c++} END{print c}' "$SKILL_FILE")
+CHECKPOINT_COUNT=$(awk 'BEGIN{in_code=0; c=0} /^```/{in_code=!in_code; next} !in_code && /^\*\*Checkpoint/{c++} END{print c}' "$SKILL_FILE")
 MARKER_COUNT=$(grep -cE '^\[Phase [0-9]+ COMPLETE\]' "$SKILL_FILE" || echo "0")
+
+echo "✓ phases found: $PHASE_COUNT"
 echo "✓ phase completion markers: $MARKER_COUNT"
 
-# Count checkpoints
-CHECKPOINT_COUNT=$(grep -cE '^\*\*Checkpoint' "$SKILL_FILE" || echo "0")
+# Ensure each phase has a corresponding marker at least once
+for n in $(seq 1 "$PHASE_COUNT"); do
+    if ! grep -qE "^\[Phase $n COMPLETE\]" "$SKILL_FILE"; then
+        echo "❌ FAIL: Missing completion marker for Phase $n"
+        exit 1
+    fi
+done
+echo "✓ every phase has a completion marker"
+
 echo "✓ checkpoints: $CHECKPOINT_COUNT"
+
+if [ "$PHASE_COUNT" -ne "$CHECKPOINT_COUNT" ]; then
+    echo "❌ FAIL: Checkpoint count ($CHECKPOINT_COUNT) must match phase count ($PHASE_COUNT)"
+    exit 1
+fi
+echo "✓ checkpoint count matches phase count"
+
+# Ensure SKILL.md explicitly references recipe.yaml
+if ! grep -qi 'recipe\.yaml' "$SKILL_FILE"; then
+    echo "❌ FAIL: SKILL.md must explicitly reference recipe.yaml as execution contract"
+    exit 1
+fi
+echo "✓ SKILL.md references recipe.yaml"
 
 # Check for invalid tool names
 INVALID_TOOLS=$(grep -oE '\b(ask|fetch|task|lsp|notebook|puppeteer|EnterPlanMode)\b' "$SKILL_FILE" || true)
@@ -183,6 +203,53 @@ if [ "$STEP_COUNT" -ne "$PHASE_COUNT" ]; then
     exit 1
 fi
 echo "✓ step count matches phase count: $STEP_COUNT"
+
+# Strict schema sync checks via YAML parse
+python3 - "$RECIPE_FILE" <<'PY'
+import sys
+import yaml
+
+path = sys.argv[1]
+data = yaml.safe_load(open(path)) or {}
+
+workflow = data.get("workflow", []) or []
+params = data.get("parameters", []) or []
+outputs = data.get("outputs", []) or []
+
+errors = []
+
+# Steps should be sequential starting at 1
+steps = [w.get("step") for w in workflow]
+expected = list(range(1, len(workflow) + 1))
+if steps != expected:
+    errors.append(f"workflow step numbers must be sequential {expected}, got {steps}")
+
+requires_inputs = set()
+produces = set()
+for w in workflow:
+    for key in (w.get("requires_input") or []):
+        requires_inputs.add(key)
+    for out in (w.get("produces") or []):
+        produces.add(out)
+
+for p in params:
+    key = p.get("key")
+    if key and key not in requires_inputs:
+        errors.append(f"parameter '{key}' is not referenced by any workflow step requires_input")
+
+for o in outputs:
+    oid = o.get("id")
+    if oid and oid not in produces:
+        errors.append(f"output '{oid}' is not produced by any workflow step")
+
+if errors:
+    print("❌ FAIL: strict recipe-sync checks failed:")
+    for e in errors:
+        print(f"   - {e}")
+    sys.exit(1)
+
+print("✓ strict recipe-sync checks passed")
+PY
 
 # Check that recipe.yaml references SKILL.md
 if ! grep -q 'See SKILL.md' "$RECIPE_FILE"; then

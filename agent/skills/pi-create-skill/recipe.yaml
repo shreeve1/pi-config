@@ -54,7 +54,7 @@ workflow:
 
   - step: 3
     name: "Write the SKILL.md"
-    description: "Write SKILL.md with phases, completion markers, checkpoints, and guardrails. Move overflow to references/."
+    description: "Write SKILL.md with phases, completion markers, checkpoints, guardrails, and explicit recipe-first execution language. Move overflow to references/."
     requires_input: ["skill-name", "scope"]
     produces: ["skill-md"]
     decision_point: false
@@ -67,7 +67,7 @@ workflow:
 
   - step: 5
     name: "Write bundled resources and verify"
-    description: "Write any scripts/references/assets, read back files, run validation script, verify recipe-skill sync."
+    description: "Write any scripts/references/assets, read back files, run strict validation script, and fail on any recipe-sync mismatch."
     produces: ["bundled-resources"]
     decision_point: false
 
@@ -112,6 +112,11 @@ validation:
     target: "skill-md"
     contains: ["name:", "description:"]
 
+  - name: "SKILL.md references recipe execution contract"
+    type: "content"
+    target: "skill-md"
+    contains: ["recipe.yaml"]
+
   - name: "SKILL.md has phase completion markers"
     type: "content"
     target: "skill-md"
@@ -129,3 +134,7 @@ validation:
   - name: "Skill name matches directory"
     type: "shell"
     command: "test \"$(grep '^name:' SKILL.md | head -1 | sed 's/name: //')\" = \"$(basename \"$PWD\")\""
+
+  - name: "Strict recipe-sync validator passes"
+    type: "shell"
+    command: "./scripts/validate-skill.sh ."

@@ -1,0 +1,128 @@
+# See SKILL.md in this directory for detailed instructions
+version: "1.0.0"
+title: "Pi Brainstorm"
+description: "Run an explicit-invocation, interview-first brainstorm that converges to one actionable next step."
+
+parameters:
+  - key: "topic"
+    type: "string"
+    required: true
+    description: "The brainstorming topic to explore"
+
+  - key: "project-path"
+    type: "string"
+    required: false
+    description: "Optional explicit path to the project to review"
+
+  - key: "goal-statement"
+    type: "string"
+    required: true
+    description: "User-confirmed goal that must be understood before ideation"
+
+  - key: "preference-signals"
+    type: "string"
+    required: true
+    description: "User preferences that guide creative direction and prioritization"
+
+  - key: "save-summary"
+    type: "boolean"
+    required: false
+    default: false
+    description: "Whether to save a markdown summary under artifacts/brainstorming"
+
+  - key: "web-research-opt-in"
+    type: "boolean"
+    required: false
+    default: false
+    description: "Whether to run optional external web research before convergence"
+
+workflow:
+  - step: 1
+    name: "Confirm invocation and review context"
+    description: "Confirm explicit invocation, capture the topic, and perform a quick project review so the brainstorm is grounded in real constraints and opportunities."
+    requires_input: ["topic", "project-path"]
+    produces: ["project-context-brief"]
+    decision_point: true
+
+  - step: 2
+    name: "Interview for goal and preference signals"
+    description: "Run a mandatory clarification interview and confirm a concrete goal plus preference signals. Do not proceed until the goal is explicitly confirmed."
+    requires_input: ["goal-statement", "preference-signals"]
+    produces: ["interview-brief"]
+    decision_point: true
+
+  - step: 3
+    name: "Generate structured creative options"
+    description: "Create a diverse option set with upside and risk for each, then capture user feedback to form a shortlist for convergence."
+    requires_input: ["topic", "preference-signals"]
+    produces: ["idea-candidates"]
+    decision_point: true
+
+  - step: 4
+    name: "Offer optional web research"
+    description: "Ask whether external research is wanted. If yes, run web_search and web_fetch on top sources and summarize decision-relevant insights."
+    requires_input: ["web-research-opt-in", "topic"]
+    produces: ["web-research-brief"]
+    decision_point: true
+
+  - step: 5
+    name: "Prioritize and converge"
+    description: "Prioritize shortlisted options by fit, impact, and time-to-value, then converge to one user-accepted actionable next step."
+    requires_input: ["goal-statement", "preference-signals", "web-research-opt-in"]
+    produces: ["actionable-next-step"]
+    decision_point: true
+
+  - step: 6
+    name: "Wrap up and optionally save"
+    description: "Summarize the decision and next step, ask whether to save notes, and write a markdown artifact when requested."
+    requires_input: ["save-summary", "topic"]
+    produces: ["brainstorm-report", "brainstorm-summary-file"]
+    decision_point: true
+
+outputs:
+  - id: "project-context-brief"
+    description: "Short context brief from project review"
+    type: "intermediate"
+    required: true
+
+  - id: "interview-brief"
+    description: "Captured and confirmed goal plus preference signals"
+    type: "intermediate"
+    required: true
+
+  - id: "idea-candidates"
+    description: "Creative option set explored during brainstorming"
+    type: "artifact"
+    required: true
+
+  - id: "web-research-brief"
+    description: "Optional external research summary used to inform prioritization"
+    type: "artifact"
+    required: false
+
+  - id: "actionable-next-step"
+    description: "Single agreed next step with rationale"
+    type: "artifact"
+    required: true
+
+  - id: "brainstorm-report"
+    description: "Final concise report shared with the user"
+    type: "artifact"
+    required: true
+
+  - id: "brainstorm-summary-file"
+    description: "Optional saved markdown summary file"
+    type: "file"
+    pattern: "artifacts/brainstorming/brainstorm-*.md"
+    required: false
+
+validation:
+  - name: "Skill includes one actionable next step"
+    type: "content"
+    target: "actionable-next-step"
+    contains: ["next step", "rationale"]
+
+  - name: "Summary file path pattern"
+    type: "content"
+    target: "brainstorm-summary-file"
+    contains: ["artifacts/brainstorming/brainstorm-"]

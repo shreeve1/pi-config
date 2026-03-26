@@ -1,219 +1,252 @@
 ---
 name: pi-brainstorm
-description: Use when the user wants to brainstorm, explore ideas, compare directions, think creatively, generate options before implementation, or re-plan after validation shows a plan is not feasible for the current repo.
+description: Use only when explicitly invoked with /skill:pi-brainstorm (or a direct request to run this skill). Run a structured brainstorm for the current project: quick repo review, mandatory goal-and-preference interview, creative option generation, prioritization, and convergence to one actionable next step. Do not use for direct coding or full implementation planning.
 ---
 
 # Pi Brainstorm
 
-Use this skill when the goal is collaborative idea generation and directional thinking, especially before committing to a build plan. It is also the required re-planning skill when `pi-dev-validate` determines a plan is `not-feasible` for the current repository. Do not use it when the user already wants a concrete implementation plan or direct code changes; in those cases, finish the brainstorming quickly or hand off to planning.
+Use this skill for deliberate, collaborative ideation when the user wants to think through options before planning or coding. This skill is intentionally interview-driven: review project context first, clarify goal and preference signals, then generate options and converge to exactly one actionable next step. Do not use this as a replacement for implementation planning or execution.
+
+For execution discipline, treat `recipe.yaml` in this directory as the authoritative contract and follow its workflow steps in order.
 
 ---
 
-## Validate Handoff Mode
+## Phase 1 — Confirm Invocation and Review Project Context
 
-When this skill is invoked from `pi-dev-validate` because a plan is `not-feasible`, do not treat the session as open-ended ideation.
+This skill should run only when explicitly invoked (for example with `/skill:pi-brainstorm`, or when the user clearly asks to run this skill by name).
 
-Required behavior in this mode:
-1. Read the structured feasibility result from validate first.
-2. Expect this handoff shape when available: `status`, `critical_blockers`, `missing_prerequisites`, `scope_concerns`, `repo_fit_summary`, `recommended_action`, and the original failed plan goal.
-3. Restate the blockers in plain English so the user understands why the previous plan did not fit the repo.
-4. Treat those blockers as hard constraints for brainstorming.
-5. Focus on producing a better-fit replacement direction, a smaller phased approach, or a prerequisite-first plan.
-6. Do not drift into imaginative options that ignore the current repo state.
-7. Best next step after this mode is usually a new implementation plan, not immediate coding.
+1. Confirm explicit invocation intent from the user message.
+2. Capture the brainstorm topic in one sentence. If unclear, use `ask_user`.
+3. Review the project before interviewing:
+   - Use `Bash` to inspect repository structure.
+   - Use `Read` on key files (README, package manifests, core docs, or obvious entry points).
+   - Build a short project-context brief: what exists, what constraints are visible, and where ideas could fit.
+4. If the user provides feasibility findings from `pi-dev-validate`, treat those as constraints for brainstorming.
 
-Typical blocker inputs from validate may include:
-- missing dependencies or services
-- nonexistent file references
-- architecture assumptions not present in the repo
-- plan scope that is too large for one execution pass
-- sequencing or prerequisite problems
+Keep this review lightweight but concrete so later ideas are grounded.
 
-If blockers are missing or underspecified, ask for them before continuing.
-Do not proceed in validate-handoff mode without at least one concrete feasibility finding from `pi-dev-validate` such as a blocker, missing prerequisite, scope concern, or repo-fit summary.
+### Phase 1 Complete
 
-## Phase 1 — Capture the Topic
+Output this marker before proceeding:
 
-Start by identifying the topic and any optional project path or project context already present in the conversation.
+[Phase 1 COMPLETE] Invocation and project review ready
+  Topic: <one-line topic>
+  Project context reviewed: <yes | no>
+  Constraint inputs: <none | summarized>
 
-1. If the topic is missing or vague, use `ask_user` to get it.
-2. If the user references a local project path, verify it exists with `bash`.
-3. If this was entered from `pi-dev-validate`, capture the failed plan goal plus the structured feasibility result as the starting context.
-4. If you will save notes later, ensure `artifacts/brainstorming/` exists with `bash`.
+**Checkpoint — proceed only if ALL conditions are met:**
+- [ ] Invocation is explicit (manual skill use or direct request)
+- [ ] Topic is stated in one sentence
+- [ ] Project context was reviewed (or inability was clearly stated)
+- [ ] Any validate-style constraints were captured when provided
 
-Keep the setup light. The point is to create enough structure for a productive session, not to slow the conversation down.
+---
 
-## Phase 2 — Ask Whether to Use Project Context
+## Phase 2 — Mandatory Goal and Preference Interview
 
-Do not assume a project review is wanted just because a repository or path is available.
+Do not generate ideas yet.
 
-If there is a relevant local project, current repository, or referenced codebase, ask the user whether to include project context before reviewing files. A good `ask_user` `select` is:
-- yes, review the project first
-- no, brainstorm without project review
-- decide after a quick topic setup
+1. Restate your understanding of the topic and project context in 1-2 sentences.
+2. Run a focused interview using `ask_user` to capture at least:
+   - the goal (required)
+   - preference signals (required): style, constraints, risk appetite, novelty vs practicality, timeline, or similar
+3. If goal is vague, prompt with follow-up questions until it is specific enough to guide trade-offs.
+4. Reflect the captured inputs back to the user and request confirmation.
 
-If the user chooses project review, do a fast review before brainstorming.
-If the user chooses no review, skip directly to clarification and ideation.
-If the user wants to decide later, continue the intake and revisit the choice only if project context would materially improve the brainstorm.
+Do not proceed to ideation until the user confirms the goal statement.
 
-When project review is approved, use `bash` and `read` to understand:
-- what the project does
-- the stack and architecture
-- notable strengths, constraints, and gaps
-- where new ideas would fit naturally
+### Phase 2 Complete
 
-Summarize the findings briefly before moving on.
+Output this marker before proceeding:
 
-## Phase 3 — Clarify Intent Interactively
+[Phase 2 COMPLETE] Interview locked
+  Goal: <confirmed goal>
+  Preference signals: <bullet summary>
 
-Before generating ideas, restate your current understanding in one or two sentences.
-If this came from `pi-dev-validate`, include both: (a) the original goal of the failed plan and (b) the blockers that must shape the replacement approach.
+**Checkpoint — proceed only if ALL conditions are met:**
+- [ ] Goal is explicit and user-confirmed
+- [ ] Preference signals are captured
+- [ ] Any hard constraints are listed
+- [ ] User confirmed readiness to brainstorm options
 
-Then use `ask_user` to gather the minimum context needed to make the brainstorming useful. Prefer 1-2 short interactions over a long interview.
+---
 
-Good topics to clarify:
-- what is driving the question
-- what constraints matter most
-- what success looks like
-- whether the user wants broad exploration or practical next steps
-- whether the user wants web research or a no-research brainstorm
-- if entered from `pi-dev-validate`, whether the user wants: a smaller replacement plan, a prerequisite-first plan, or a phased roadmap
+## Phase 3 — Generate Structured Creative Options
 
-When research preference is not already explicit, ask directly with `ask_user` using a `select` such as:
-- brainstorm only, no web research
-- brainstorm with targeted web research
-- decide after seeing angles
+Now diverge creatively while staying aligned to the confirmed goal.
 
-Treat this choice as a steering input, not a default assumption.
+1. Generate 4-7 distinct options.
+2. Ensure option diversity (for example: product, technical, workflow, or scope angles).
+3. For each option, include:
+   - why it could work in this project
+   - main upside
+   - main risk or uncertainty
+4. Ask the user which options resonate and why.
+5. If no option resonates, revise once using feedback and present a refreshed set.
 
-Use `select` when a few common options fit. Use `input` or `editor` when the user needs room to explain nuance.
+Be imaginative, but keep every option connected to the confirmed goal and project context.
 
-## Phase 4 — Propose Research Angles
+### Phase 3 Complete
 
-Generate 3-5 distinct angles to explore. Make them:
-- varied across technical, user, product, operational, or market perspectives
-- specific enough to research
-- shaped by the user's stated priorities
+Output this marker before proceeding:
 
-Present the angles and ask the user how to proceed with `ask_user`.
+[Phase 3 COMPLETE] Option set explored
+  Options generated: <count>
+  User feedback captured: <yes | no>
 
-A good approval prompt is a `select` with options such as:
-- proceed with all angles
-- narrow to the top 3
-- adjust the angles first
+**Checkpoint — proceed only if ALL conditions are met:**
+- [ ] At least 4 distinct options were presented
+- [ ] Each option includes upside and risk
+- [ ] User preference feedback was captured
+- [ ] A shortlist exists for convergence
 
-If the user wants changes, revise the angles and confirm again.
+---
 
-## Phase 5 — Research in Parallel When External Evidence Matters
+## Phase 4 — Offer Optional Web Research
 
-Honor the user's explicit research preference.
+Before converging, explicitly offer external research.
 
-- If they chose no web research, skip this phase entirely and brainstorm from project context plus reasoning.
-- If they chose targeted web research, use `subagent` in parallel to investigate the selected angles.
-- If they asked to decide later, recommend whether research is worth it after angles are proposed, then confirm with `ask_user` before searching.
+1. Ask whether the user wants web research to strengthen decision quality.
+2. If yes:
+   - Use `web_search` to find relevant sources.
+   - Use `web_fetch` to read the 2-3 most relevant links in full.
+   - Summarize only insights that affect option selection, feasibility, or risk.
+3. If no, continue with current project-grounded evidence.
+4. Confirm whether the evidence base is sufficient to prioritize.
 
-Do not silently perform web research just because it might help. Make the choice visible.
+Keep this phase focused. The goal is decision support, not broad open-ended research.
 
-When research is approved, each subagent should:
-1. research one angle using `web_search` and `web_fetch`
-2. return 3-5 concise insights
-3. call out any surprising or contrarian findings
+### Phase 4 Complete
 
-Use prompts like:
+Output this marker before proceeding:
 
-```text
-Research this brainstorming angle for the topic "<topic>": <angle>.
+[Phase 4 COMPLETE] Web research decision complete
+  Research requested: <yes | no>
+  External insights added: <yes | no>
 
-Context:
-<short context block>
+**Checkpoint — proceed only if ALL conditions are met:**
+- [ ] User was explicitly offered web research
+- [ ] If requested, search and source-reading were completed
+- [ ] Research summary is relevant to option prioritization
+- [ ] User confirmed readiness to converge
 
-Instructions:
-1. Use web_search to find relevant sources.
-2. Use web_fetch on the most relevant 2-3 results.
-3. Return 3-5 concise insights.
-4. Note any surprising or contrarian findings.
-5. Keep the response compact and decision-oriented.
-```
+---
 
-If the topic is mainly internal, speculative, or project-specific, recommend skipping web research unless the user explicitly wants external signals.
+## Phase 5 — Prioritize and Converge to One Actionable Next Step
 
-## Phase 6 — Synthesize and Explore Ideas
+Converge from options to one concrete next move.
 
-Combine project context, user constraints, and any research into a short briefing:
-- key themes
-- notable insights
-- tensions or trade-offs
-- open questions
+1. Compare shortlisted options with concise criteria:
+   - goal alignment
+   - repo fit / feasibility
+   - expected impact
+   - time-to-value
+2. Recommend one direction with a short rationale.
+3. Translate the recommendation into one actionable next step:
+   - clear action
+   - expected output
+   - immediate start point
+4. Confirm this single next step with the user. If not accepted, adjust and reconverge.
 
-Then shift into collaborative ideation.
+End this phase only when one next step is agreed.
 
-1. Seed the conversation with 2-4 promising directions.
-2. Ask the user which direction resonates most using `ask_user` when a structured choice is helpful.
-3. Build on their answer with alternatives, combinations, and "what if" variants.
-4. Periodically synthesize what has emerged so the session stays coherent.
-5. If entered from `pi-dev-validate`, make every direction explicitly repo-fit: show how it avoids the failed plan's blockers and whether it is best framed as a replacement plan, prerequisite plan, or phased sequence.
+### Phase 5 Complete
 
-Keep the tone energetic and collaborative. The goal is exploration, not premature convergence.
+Output this marker before proceeding:
 
-## Phase 7 — Wrap Up and Capture Artifacts
+[Phase 5 COMPLETE] Converged to one next step
+  Selected direction: <name>
+  Actionable next step: <single concrete step>
 
-When the user is ready to stop, summarize:
-- the strongest ideas
-- the most important trade-offs
-- likely next steps
+**Checkpoint — proceed only if ALL conditions are met:**
+- [ ] Prioritization criteria were applied
+- [ ] One direction was recommended
+- [ ] Exactly one actionable next step is defined
+- [ ] User accepted or refined the final next step
 
-Ask whether they want the session saved. If yes:
-1. create `artifacts/brainstorming/` if needed
-2. write a markdown summary to `artifacts/brainstorming/brainstorm-<topic-slug>-<date>.md`
+---
 
-Suggested sections:
-- Topic
-- Context
-- Key themes
-- Candidate directions
-- Recommended next steps
+## Phase 6 — Wrap Up and Optional Save
 
-If the conversation naturally leads into execution, suggest the next skill or workflow, such as creating an implementation plan.
-If this session came from `pi-dev-validate`, the default next step should be a new implementation plan that explicitly incorporates the feasibility constraints discovered during validation.
+1. Provide a concise wrap-up:
+   - confirmed goal
+   - selected direction
+   - single actionable next step
+   - why this is the best immediate move
+2. Ask whether to save a summary.
+3. If yes, use `Bash` to ensure `artifacts/brainstorming/` exists, then use `Write` to create:
+   - `artifacts/brainstorming/brainstorm-<topic-slug>-<date>.md`
 
-## Output Format
-
-When saving a summary, use this structure:
+Use this file template when saving:
 
 ```markdown
 # Brainstorm: <topic>
 
-## Context
-<what prompted the session>
+## Goal
+<confirmed goal>
 
-## Key Themes
-- <theme>
+## Preference Signals
+- <signal>
 
-## Candidate Directions
-### <direction 1>
-- benefits
-- risks
-- open questions
+## Project Context Snapshot
+- <constraint or opportunity>
 
-### <direction 2>
-- benefits
-- risks
-- open questions
+## Options Considered
+### <option>
+- Upside: <text>
+- Risk: <text>
 
-## Recommended Next Steps
-- <next step>
+## Selected Direction
+<selected direction>
+
+## Single Actionable Next Step
+<exact next step>
+
+## Why This Next
+<short rationale>
 ```
+
+### Phase 6 Complete
+
+Output this marker before finishing:
+
+[Phase 6 COMPLETE] Brainstorm delivered
+  Single next step chosen: <yes | no>
+  Summary saved: <yes | no>
+  File: <path | none>
+
+**Checkpoint — proceed only if ALL conditions are met:**
+- [ ] Final output includes one actionable next step
+- [ ] Rationale for that step is included
+- [ ] Save preference was asked
+- [ ] If saving was requested, file was written successfully
+
+---
+
+## Guardrails
+
+**Do NOT:**
+- Auto-run this skill for generic planning or coding prompts without explicit invocation
+- Start ideation before goal confirmation
+- End with multiple competing next steps
+
+**DO:**
+- Keep the interview short but sufficient to confirm goal and preference signals
+- Keep options creative and varied
+- Converge decisively to one immediate actionable next step
+
+---
 
 ## Report
 
-After completing the skill's work, report:
-- whether this was a normal brainstorm or a `pi-dev-validate` handoff
-- what feasibility blockers or repo-fit constraints shaped the session
-- what project-context mode was chosen: review first, no project review, or decide later
-- whether project review was actually performed
-- what research mode was chosen: no research, targeted web research, or decide later
-- whether research was actually performed
-- the main ideas generated
-- which direction best fits the current repo
-- any file written and its path
-- the best next step for the user
+After completing the skill, report:
+- invocation mode confirmation
+- topic and confirmed goal
+- preference signals captured
+- whether project context was reviewed
+- number of options explored
+- whether optional web research was offered and used
+- selected direction
+- single actionable next step
+- whether a summary file was saved and its path
+- suggested follow-up skill (if useful)
