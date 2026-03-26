@@ -337,7 +337,7 @@ Write the completed document to:
 
 `artifacts/plans/<filename>.md`
 
-When the plan is meant for implementation, assume execution should usually happen on a feature branch or git worktree rather than directly on `main`/`master`. You do not need to create the worktree here; just keep the plan compatible with that workflow.
+When the plan is meant for implementation, assume execution should usually happen on a feature branch rather than directly on `main`/`master`.
 
 Then report:
 - where the plan was saved

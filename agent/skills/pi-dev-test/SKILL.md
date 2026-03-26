@@ -40,9 +40,8 @@ Rules:
 - Use **Discovery Mode** when test structure is unclear or the project lacks an established test workflow
 
 Workspace policy:
-- If implementation happened in a git worktree, run verification in that same worktree
-- If the current directory is already a linked worktree, keep using it
-- If the user is testing a branch-based implementation from `main` or another shared checkout and the test flow may write files, caches, snapshots, or generated artifacts, invoke the `pi-worktree` skill to create an isolated worktree before running tests
+- Tests always run in the current working directory and current checkout
+- If on a feature branch, run tests there
 
 Do not make implementation changes by default. If tests expose product bugs, report them clearly and only fix implementation if the user asked for a repair-oriented testing loop.
 
@@ -67,7 +66,7 @@ Use this mode when testing should be anchored to a written plan or explicit acce
 
 ## Phase P1 - Discover and Read the Plan
 
-Before selecting commands, use `bash` to determine the execution workspace: current branch, git top-level path, and whether the current directory is already a linked worktree. If the plan was built in a separate worktree path, treat that path as the default testing workspace.
+Before selecting commands, use `bash` to determine the execution workspace: current branch and git top-level path.
 
 If `PATH_TO_PLAN` is provided, use it.
 
@@ -124,7 +123,7 @@ Use `bash` to run:
 - test commands appropriate to the project
 - browser/E2E tests if included
 
-Run these commands from the same workspace used for implementation. If that workspace is a worktree, keep all commands scoped there so test results match the code under review.
+Run these commands from the current working directory so test results match the code under review.
 
 Prefer targeted commands first, then broader verification if needed.
 
@@ -166,8 +165,6 @@ If no manifest exists, infer the test command from the project structure using `
 ## Phase R2 - Run Tests
 
 Use `bash` to run the most appropriate existing test command.
-
-If the repo has an active implementation worktree, prefer running from that worktree rather than the primary checkout. If no worktree is active and the requested testing step is likely to update snapshots, fixtures, coverage artifacts, or generated files, invoke the `pi-worktree` skill to create an isolated worktree before proceeding.
 
 Examples may include:
 - project package scripts
@@ -349,21 +346,21 @@ If browser setup is heavy or project-specific, keep the test scope narrow and fo
 
 ---
 
-# Post-Test Merge Decision
+# Post-Test Decision
 
-After testing succeeds for a branch-based or worktree-based workflow, ask the user what they want to do next.
+After testing succeeds for a branch-based workflow, ask the user what they want to do next.
 
 Use `ask_user` with a focused `select` prompt. The default options should be:
 - `Merge and clean up` (recommended when all tests pass)
-- `Keep the worktree open for more changes`
+- `Keep working on this branch`
 - `Stop here without merging yet`
 
 Decision rules:
 - if tests or validation commands failed, do not offer merge as the recommended path
-- if tests passed in a worktree or feature branch, recommend `Merge and clean up`
-- if the user wants more changes, keep the worktree path and branch visible in the final report
+- if tests passed on a feature branch, recommend `Merge and clean up`
+- if the user wants more changes, keep the branch visible in the final report
 
-**If the user selects merge:** Invoke the `pi-merge` skill. It handles the entire merge, push, worktree removal, and branch cleanup with one confirmation. Do not reimplement merge logic here.
+If the user selects merge, report the branch name and remind the user to merge via their normal git workflow (e.g., `git merge`, pull request).
 
 # Unified Report
 
@@ -374,7 +371,6 @@ After testing work completes, output a concise unified report:
 
 Mode: <Plan-Driven | Run | Analyze | Discovery>
 Plan: <path or "none">
-Worktree: <path or "none">
 Branch: <branch or "none">
 Browser Mode: <none | headless | headed>
 

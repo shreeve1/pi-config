@@ -300,7 +300,7 @@ If the user chooses testing:
 - state that testing should happen before merge
 
 If the user chooses merge:
-- invoke the `pi-merge` skill, which handles the merge, push, and branch cleanup with one confirmation
+- merge the feature branch via normal git workflow (`git merge`, `git push`, branch cleanup)
 
 If the user chooses to keep working:
 - report that the current branch remains the workspace for further edits and testing

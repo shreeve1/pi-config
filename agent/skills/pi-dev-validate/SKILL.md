@@ -25,7 +25,7 @@ You MUST create a task for each of these items and complete them in order:
 1. **Select and parse plan** — locate plan file, parse structure, extract files to modify and code changes
 2. **Verify understanding** — use `ask_user` to confirm plan intent with 2-3 focused questions about goals, constraints, and expected outcome
 3. **Feasibility preflight** — verify the plan is implementable in this repo before spawning validation workers
-4. **Baseline provenance preflight** — validate `Validation Commands` file references exist in the current workspace and detect cross-checkout/worktree baseline mismatches
+4. **Baseline provenance preflight** — validate `Validation Commands` file references exist in the current workspace
 5. **Smart analysis** — spawn analysis subagent to analyze plan and determine required validations
 6. **Targeted validation** — spawn only relevant validation subagents in parallel based on analysis
 7. **Synthesize and rewrite** — collect subagent results, assess risks, rewrite risky steps with safer alternatives
@@ -44,8 +44,8 @@ You MUST create a task for each of these items and complete them in order:
 - Use parallel subagents for the selected validations to maximize speed.
 - When rewriting risky steps, preserve the original step as a strikethrough comment for context.
 - Only modify the plan file if issues are found; otherwise report clean validation without changes.
-- Validation normally happens in the primary checkout. If the user explicitly wants plan edits isolated on a branch, or if plan validation is part of a broader branch-based workflow, note that the updated plan should be written in that same worktree rather than creating a separate plan-only branch by default.
-- **Baseline provenance check required**: validate that files referenced in `Validation Commands` (especially test files) actually exist in the current workspace. If missing, check whether they exist only in another checkout/worktree as uncommitted changes and flag this as a plan execution risk.
+- Validation normally happens in the current working directory. If the user explicitly wants plan edits isolated on a branch, write the validated plan in that same branch context rather than creating a separate plan-only branch by default.
+- **Baseline provenance check required**: validate that files referenced in `Validation Commands` (especially test files) actually exist in the current workspace. If missing, flag this as a plan execution risk.
 
 ## Workflow
 
@@ -131,11 +131,11 @@ Add findings to Risk Analysis under `Critical Issues`, `Warnings`, or a new `Fea
   4. normalize by stripping quotes, trailing punctuation, and shell operators
   5. de-duplicate and ignore obvious command names (`npm`, `pnpm`, `yarn`, `vitest`, `node`, `bash`, `cd`, flags like `--`)
 - Use `bash` to verify each referenced path exists in the current workspace.
-- If one or more are missing, run a provenance check:
-  - compare with the primary checkout or sibling worktree when possible
-  - detect likely case: files exist elsewhere but are uncommitted, so a fresh worktree/branch will not contain them
+- If one or more are missing, flag the issue:
+  - check whether missing files are uncommitted, on a different branch, or simply not yet created
+  - detect likely case: files referenced in the plan do not yet exist in the current workspace
 - Severity rules (deterministic):
-  - **critical**: a missing path is referenced by validation commands and exists in another checkout/worktree but not current workspace (proven baseline provenance mismatch)
+  - **critical**: a missing path is referenced by validation commands and is required for baseline verification to succeed
   - **warning**: a missing path is referenced by validation commands, but provenance cannot be proven (non-git repo, unavailable sibling checkout, or insufficient evidence)
   - **info**: path extraction uncertain but no missing required paths detected
 - If this risk is detected, recommend one of:
@@ -266,7 +266,7 @@ Use `subagent` with mode: parallel to launch only the required validation subage
    - Baseline provenance risk: test files named in Validation Commands missing from current workspace
 
    Find all tests that touch affected files/functions.
-   If any Validation Command references missing files, report whether this appears to be a branch/worktree provenance issue vs a true missing-test issue.
+   If any Validation Command references missing files, report whether this appears to be a missing-file issue (not yet created, on a different branch, etc.).
    Report: tests that will break, coverage gaps, and provenance findings.
    ```
 
@@ -325,7 +325,7 @@ Use `subagent` with mode: parallel to launch only the required validation subage
 ### Phase 5: Conditional Plan Update
 
 16. **If Issues Found**: Add Validation Section and Save
-    - Before writing, confirm the target workspace path. In most cases this is the primary checkout. If the user is running a worktree-based implementation workflow, write the validated plan in that same workspace so later build/test steps read the updated plan from the same branch context.
+    - Before writing, confirm the target workspace path. Write the validated plan in the current working directory so later build/test steps read the updated plan from the same context.
     Insert a new section after "Step by Step Tasks":
     ```md
     ## Risk Analysis
@@ -437,5 +437,5 @@ The plan is ready to build as-is. No modifications were made.
 - If feasibility preflight finds the plan is not implementable as written: stop worker fan-out, summarize the blockers in the structured feasibility result, and hand off to `pi-brainstorm` for re-planning
 - If subagent analysis fails: report which analysis failed and continue with available results
 - If validation command path extraction is ambiguous or partially fails: report which commands could not be parsed, mark provenance status as `unknown`, and continue with conservative warnings
-- If provenance comparison cannot run (not a git repo or no accessible sibling checkout/worktree): mark provenance as `unknown` and require explicit user confirmation before recommending build execution
+- If provenance comparison cannot run (not a git repo or insufficient context): mark provenance as `unknown` and require explicit user confirmation before recommending build execution
 - If plan has no risky steps: report clean validation with no changes needed
