@@ -31,6 +31,7 @@ import { applyExtensionDefaults } from "./themeMap.ts";
 interface AgentDef {
 	name: string;
 	description: string;
+	model?: string;
 	tools: string;
 	systemPrompt: string;
 	file: string;
@@ -96,6 +97,7 @@ function parseAgentFile(filePath: string): AgentDef | null {
 		return {
 			name: frontmatter.name,
 			description: frontmatter.description || "",
+			model: frontmatter.model || undefined,
 			tools: frontmatter.tools || "read,grep,find,ls",
 			systemPrompt: match[2].trim(),
 			file: filePath,
@@ -113,10 +115,24 @@ function scanAgentDirs(cwd: string): AgentDef[] {
 		join(homedir(), ".pi", "agent", "agents"),  // global Pi agent dir
 	];
 
+	// Expand base dirs to include one level of subdirectories
+	const expandedDirs: string[] = [];
+	for (const base of dirs) {
+		expandedDirs.push(base);
+		if (!existsSync(base)) continue;
+		try {
+			for (const entry of readdirSync(base, { withFileTypes: true })) {
+				if (entry.isDirectory()) {
+					expandedDirs.push(join(base, entry.name));
+				}
+			}
+		} catch {}
+	}
+
 	const agents: AgentDef[] = [];
 	const seen = new Set<string>();
 
-	for (const dir of dirs) {
+	for (const dir of expandedDirs) {
 		if (!existsSync(dir)) continue;
 		try {
 			for (const file of readdirSync(dir)) {
@@ -362,9 +378,8 @@ export default function (pi: ExtensionAPI) {
 			updateWidget();
 		}, 1000);
 
-		const model = ctx.model
-			? `${ctx.model.provider}/${ctx.model.id}`
-			: "openrouter/google/gemini-3-flash-preview";
+		const model = state.def.model
+			|| (ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : "openrouter/google/gemini-3-flash-preview");
 
 		// Session file for this agent
 		const agentKey = state.def.name.toLowerCase().replace(/\s+/g, "-");
@@ -748,7 +763,7 @@ ${agentCatalog}`,
 			render(width: number): string[] {
 				const model = _ctx.model?.id || "no-model";
 				const usage = _ctx.getContextUsage();
-				const pct = usage ? usage.percent : 0;
+				const pct = usage?.percent ?? 0;
 				const filled = Math.round(pct / 10);
 				const bar = "#".repeat(filled) + "-".repeat(10 - filled);
 

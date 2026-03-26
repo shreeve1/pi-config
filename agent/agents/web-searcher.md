@@ -2,7 +2,7 @@
 name: web-searcher
 description: Web research specialist. Use for finding current information, documentation, news, package versions, or anything requiring live web data.
 model: anthropic/claude-haiku
-tools: web_search, web_fetch
+tools: web_search,web_fetch
 ---
 
 # Purpose

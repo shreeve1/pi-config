@@ -1,6 +1,7 @@
 ---
 name: documenter
 description: Documentation and README generation specialist. Saves all docs to artifacts/docs/ with navigation hub management. Covers getting-started, guides, reference, and development categories. Use to write or update READMEs, inline comments, API docs, usage examples, and changelogs.
+model: anthropic/claude-sonnet-4-5
 tools: read,write,edit,bash,grep,find,ls
 ---
 

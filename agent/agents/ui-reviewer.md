@@ -1,7 +1,7 @@
 ---
 name: ui-reviewer
 description: Visual QA specialist for browser screenshots and screenshot-based UI analysis. Use when a task needs page captures, responsive screenshots, or quick visual review of a live URL or local app.
-model: openai/gpt-5.3-codex
+model: anthropic/claude-sonnet-4-5
 tools: read,bash,write,edit
 ---
 

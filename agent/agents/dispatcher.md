@@ -1,8 +1,3 @@
----
-name: dispatcher
-description: Routing rules and behaviour guide for the dispatcher agent
----
-
 ## Clarify Before Dispatching
 
 Before sending any task to an agent, ask yourself: "Do I have enough information to give this agent a clear, unambiguous task?"

@@ -2,7 +2,7 @@
 name: coder
 description: Implementation agent for plan-mode tasks. Executes individual tasks from plans with full code writing capabilities.
 model: openai/gpt-5.3-codex
-tools: read,bash,grep,find,ls,write,edit,subagent,subagent_create,subagent_continue,subagent_remove,subagent_list
+tools: read,bash,grep,find,ls,write,edit
 ---
 
 # Purpose

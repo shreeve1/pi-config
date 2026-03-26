@@ -4,6 +4,8 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
     "typeRoots": [
       "/opt/homebrew/lib/node_modules/@mariozechner/pi-coding-agent/node_modules/@types"
     ],
