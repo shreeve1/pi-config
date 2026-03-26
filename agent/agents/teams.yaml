@@ -1,0 +1,50 @@
+# Team definitions for agent-team extension
+# Each key is a team name; each value is a list of agent names (must match *.md filenames in agents/)
+# Usage: pi -e extensions/agent-team.ts  → /agents-team to switch teams
+
+full:
+  - scout
+  - planner
+  - builder
+  - reviewer
+  - tester
+  - documenter
+  - red-team
+
+plan-build:
+  - planner
+  - builder
+  - reviewer
+
+info:
+  - scout
+  - web-searcher
+  - reviewer
+  - documenter
+
+frontend:
+  - planner
+  - mockup-designer
+  - builder
+  - ui-reviewer
+  - bowser
+
+research:
+  - scout
+  - web-searcher
+  - api-docs-fetcher
+
+qa:
+  - tester
+  - reviewer
+  - red-team
+  - ui-reviewer
+
+pi-pi:
+  - ext-expert
+  - theme-expert
+  - tui-expert
+  - skill-expert
+  - config-expert
+  - prompt-expert
+  - agent-expert

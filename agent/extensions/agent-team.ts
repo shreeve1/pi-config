@@ -23,6 +23,7 @@ import { Text, type AutocompleteItem, truncateToWidth, visibleWidth } from "@mar
 import { spawn } from "child_process";
 import { readdirSync, readFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
 import { join, resolve } from "path";
+import { homedir } from "os";
 import { applyExtensionDefaults } from "./themeMap.ts";
 
 // ── Types ────────────────────────────────────────
@@ -109,6 +110,7 @@ function scanAgentDirs(cwd: string): AgentDef[] {
 		join(cwd, "agents"),
 		join(cwd, ".claude", "agents"),
 		join(cwd, ".pi", "agents"),
+		join(homedir(), ".pi", "agent", "agents"),  // global Pi agent dir
 	];
 
 	const agents: AgentDef[] = [];
@@ -132,6 +134,25 @@ function scanAgentDirs(cwd: string): AgentDef[] {
 	return agents;
 }
 
+// ── Dispatcher Guide Loader ──────────────────────
+
+function loadDispatcherGuide(cwd: string): string {
+	const paths = [
+		join(cwd, ".pi", "agents", "dispatcher.md"),
+		join(homedir(), ".pi", "agent", "agents", "dispatcher.md"),
+	];
+	for (const p of paths) {
+		if (!existsSync(p)) continue;
+		try {
+			const raw = readFileSync(p, "utf-8");
+			// Strip YAML frontmatter if present
+			const match = raw.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/);
+			return match ? match[1].trim() : raw.trim();
+		} catch {}
+	}
+	return "";
+}
+
 // ── Extension ────────────────────────────────────
 
 export default function (pi: ExtensionAPI) {
@@ -143,6 +164,7 @@ export default function (pi: ExtensionAPI) {
 	let widgetCtx: any;
 	let sessionDir = "";
 	let contextWindow = 0;
+	let dispatcherGuide = "";
 
 	function loadAgents(cwd: string) {
 		// Create session storage dir
@@ -154,8 +176,10 @@ export default function (pi: ExtensionAPI) {
 		// Load all agent definitions
 		allAgentDefs = scanAgentDirs(cwd);
 
-		// Load teams from .pi/agents/teams.yaml
-		const teamsPath = join(cwd, ".pi", "agents", "teams.yaml");
+		// Load teams — check cwd-relative path first, then global Pi agent dir
+		const teamsPath = existsSync(join(cwd, ".pi", "agents", "teams.yaml"))
+			? join(cwd, ".pi", "agents", "teams.yaml")
+			: join(homedir(), ".pi", "agent", "agents", "teams.yaml");
 		if (existsSync(teamsPath)) {
 			try {
 				teams = parseTeamsYaml(readFileSync(teamsPath, "utf-8"));
@@ -170,6 +194,9 @@ export default function (pi: ExtensionAPI) {
 		if (Object.keys(teams).length === 0) {
 			teams = { all: allAgentDefs.map(d => d.name) };
 		}
+
+		// Load dispatcher guide
+		dispatcherGuide = loadDispatcherGuide(cwd);
 	}
 
 	function activateTeam(teamName: string) {
@@ -636,6 +663,10 @@ export default function (pi: ExtensionAPI) {
 
 		const teamMembers = Array.from(agentStates.values()).map(s => displayName(s.def.name)).join(", ");
 
+		const guideSection = dispatcherGuide
+			? `\n## Dispatcher Guide\n\n${dispatcherGuide}\n`
+			: "";
+
 		return {
 			systemPrompt: `You are a dispatcher agent. You coordinate specialist agents to accomplish tasks.
 You do NOT have direct access to the codebase. You MUST delegate all work through
@@ -659,7 +690,7 @@ You can ONLY dispatch to agents listed below. Do not attempt to dispatch to agen
 - You can chain agents: use scout to explore, then builder to implement
 - You can dispatch the same agent multiple times with different tasks
 - Keep tasks focused — one clear objective per dispatch
-
+${guideSection}
 ## Agents
 
 ${agentCatalog}`,

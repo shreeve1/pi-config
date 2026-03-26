@@ -6,11 +6,14 @@
   "quietStartup": true,
   "skills": [],
   "theme": "ember",
-  "hideThinkingBlock": true,
+  "hideThinkingBlock": false,
   "transport": "sse",
   "packages": [
     "npm:lsp-pi"
   ],
   "collapseChangelog": true,
-  "doubleEscapeAction": "tree"
+  "doubleEscapeAction": "tree",
+  "extensions": [
+    "-extensions/agent-team.ts"
+  ]
 }
