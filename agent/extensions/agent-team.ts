@@ -12,7 +12,7 @@
  * Commands:
  *   /agents-team          — switch active team
  *   /agents-list          — list loaded agents
- *   /agents-grid N        — set column count (default 2, cards mode only)
+ *   /agents-grid N|auto   — set column count (1-6) or auto-size by team
  *   /agents-view <mode>   — switch between compact|cards|toggle
  *
  * Usage: pi -e extensions/agent-team.ts
@@ -22,7 +22,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import { Text, type AutocompleteItem, truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 import { spawn } from "child_process";
-import { readdirSync, readFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
+import { readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
 import { join, resolve } from "path";
 import { homedir } from "os";
 import { applyExtensionDefaults } from "./themeMap.ts";
@@ -52,6 +52,48 @@ interface AgentState {
 }
 
 type ViewMode = "cards" | "compact";
+
+// ── Preference Persistence ────────────────────────
+
+interface TeamPrefs {
+	viewMode?: ViewMode;
+	gridCols?: number;
+}
+
+const PREFS_DIR = join(homedir(), ".pi", "agent", "preferences");
+const PREFS_FILE = join(PREFS_DIR, "agent-team.json");
+
+function loadPreferences(): TeamPrefs {
+	try {
+		const raw = readFileSync(PREFS_FILE, "utf-8");
+		const data = JSON.parse(raw);
+		const prefs: TeamPrefs = {};
+		if (data.viewMode === "cards" || data.viewMode === "compact") {
+			prefs.viewMode = data.viewMode;
+		}
+		const cols = typeof data.gridCols === "number" ? data.gridCols : NaN;
+		if (Number.isInteger(cols) && cols >= 1 && cols <= 6) {
+			prefs.gridCols = cols;
+		}
+		return prefs;
+	} catch {}
+	return {};
+}
+
+function savePreferences(prefs: Partial<TeamPrefs>, deleteKeys?: (keyof TeamPrefs)[]): void {
+	try {
+		// Merge with existing prefs so we don't clobber the other field
+		const existing = loadPreferences();
+		const merged = { ...existing, ...prefs };
+		if (deleteKeys) {
+			for (const k of deleteKeys) delete merged[k];
+		}
+		if (!existsSync(PREFS_DIR)) {
+			mkdirSync(PREFS_DIR, { recursive: true });
+		}
+		writeFileSync(PREFS_FILE, JSON.stringify(merged, null, 2) + "\n", "utf-8");
+	} catch {}
+}
 
 // ── Display Name Helper ──────────────────────────
 
@@ -179,8 +221,10 @@ export default function (pi: ExtensionAPI) {
 	let allAgentDefs: AgentDef[] = [];
 	let teams: Record<string, string[]> = {};
 	let activeTeamName = "";
+	const _savedPrefs = loadPreferences();
 	let gridCols = 2;
-	let viewMode: ViewMode = "cards";
+	let savedGridCols: number | undefined = _savedPrefs.gridCols;
+	let viewMode: ViewMode = _savedPrefs.viewMode ?? "cards";
 	let widgetCtx: any;
 	let sessionDir = "";
 	let contextWindow = 0;
@@ -243,7 +287,15 @@ export default function (pi: ExtensionAPI) {
 			});
 		}
 
-		// Auto-size grid columns based on team size
+		// Use saved grid preference if available; otherwise auto-size
+		if (savedGridCols !== undefined) {
+			gridCols = savedGridCols;
+		} else {
+			autoSizeGrid();
+		}
+	}
+
+	function autoSizeGrid() {
 		const size = agentStates.size;
 		gridCols = size <= 3 ? size : size === 4 ? 2 : 3;
 	}
@@ -299,7 +351,86 @@ export default function (pi: ExtensionAPI) {
 		];
 	}
 
-	// ── Compact Rendering ────────────────────────
+	// ── Compact Rendering (grid of 1-line tiles) ──
+
+	function renderCompactTile(state: AgentState, colWidth: number, theme: any): string {
+		// Status icon & theme color by state
+		const statusColor = state.status === "idle" ? "dim"
+			: state.status === "running" ? "accent"
+			: state.status === "done" ? "success" : "error";
+		const statusIcon = state.status === "idle" ? "○"
+			: state.status === "running" ? "●"
+			: state.status === "done" ? "✓" : "✗";
+
+		// Background tint based on status (theme-native tokens)
+		const bgToken = state.status === "running" ? "selectedBg"
+			: state.status === "done" ? "toolSuccessBg"
+			: state.status === "error" ? "toolErrorBg"
+			: "toolPendingBg";
+
+		const name = displayName(state.def.name);
+
+		// ── Right-side stats (built plain first to measure) ──
+		const parts: string[] = [];
+
+		// Runs (only if agent has been dispatched)
+		if (state.runCount > 0) parts.push(`#${state.runCount}`);
+
+		// Elapsed time (non-idle only)
+		if (state.status !== "idle") {
+			const secs = Math.round(state.elapsed / 1000);
+			if (secs >= 60) {
+				parts.push(`${Math.floor(secs / 60)}m${(secs % 60).toString().padStart(2, "0")}s`);
+			} else {
+				parts.push(`${secs}s`);
+			}
+		}
+
+		// Tool calls (non-idle with work done)
+		if (state.toolCount > 0) parts.push(`⚙${state.toolCount}`);
+
+		// Context usage (non-idle or if context is populated)
+		if (state.contextPct > 0) {
+			if (contextWindow > 0) {
+				const tokensK = Math.round(state.contextPct / 100 * contextWindow / 1000);
+				parts.push(`${tokensK}k`);
+			} else {
+				parts.push(`${Math.ceil(state.contextPct)}%`);
+			}
+		}
+
+		const statsPlain = parts.length > 0 ? parts.join(" ") : "";
+
+		// ── Measure & layout ──
+		// Target:  " ● Name·····stats "  (padded to colWidth)
+		const iconW = 2;     // "● " or "○ "
+		const padL = 1;      // leading space
+		const padR = 1;      // trailing space
+		const statsW = visibleWidth(statsPlain);
+		const gapMin = 1;    // minimum gap between name and stats
+		const chrome = padL + iconW + gapMin + statsW + padR;
+		const nameMax = Math.max(4, colWidth - chrome);
+		const truncName = truncateToWidth(name, nameMax, "…");
+		const truncNameW = visibleWidth(truncName);
+		const innerUsed = padL + iconW + truncNameW + statsW + padR;
+		const fill = Math.max(gapMin, colWidth - innerUsed);
+
+		// ── Assemble styled content ──
+		const content =
+			" " +
+			theme.fg(statusColor, statusIcon) + " " +
+			theme.fg(state.status === "idle" ? "muted" : "accent", state.status === "idle" ? truncName : theme.bold(truncName)) +
+			" ".repeat(fill) +
+			theme.fg("dim", statsPlain) +
+			" ";
+
+		// Apply background tint across the full tile width, then truncate to be safe
+		const padded = truncateToWidth(content, colWidth);
+		// Pad to exact colWidth so the bg spans the full tile
+		const currentW = visibleWidth(padded);
+		const rightPad = Math.max(0, colWidth - currentW);
+		return theme.bg(bgToken, padded + " ".repeat(rightPad));
+	}
 
 	function renderCompact(width: number, theme: any): string[] {
 		const agents = Array.from(agentStates.values());
@@ -307,68 +438,21 @@ export default function (pi: ExtensionAPI) {
 			return [theme.fg("dim", "No agents found. Add .md files to agents/")];
 		}
 
-		const truncate = (s: string, max: number) => s.length > max ? s.slice(0, max - 3) + "..." : s;
-
-		const idle: AgentState[] = [];
-		const nonIdle: AgentState[] = [];
-		for (const a of agents) {
-			if (a.status === "idle") idle.push(a);
-			else nonIdle.push(a);
-		}
-
+		const cols = Math.min(gridCols, agents.length);
+		const gap = 1;
+		const colWidth = Math.floor((width - gap * (cols - 1)) / cols);
 		const lines: string[] = [];
 
-		// ── Non-idle agents: one line each ──
-		for (const state of nonIdle) {
-			const statusColor = state.status === "running" ? "accent"
-				: state.status === "done" ? "success" : "error";
-			const statusIcon = state.status === "running" ? "●"
-				: state.status === "done" ? "✓" : "✗";
+		for (let i = 0; i < agents.length; i += cols) {
+			const row = agents.slice(i, i + cols);
+			const tiles = row.map(a => renderCompactTile(a, colWidth, theme));
 
-			const name = displayName(state.def.name);
+			// Pad last row if fewer agents than columns
+			while (tiles.length < cols) {
+				tiles.push(" ".repeat(colWidth));
+			}
 
-			// Elapsed time — right-align in a small field for visual alignment
-			const timeSec = Math.round(state.elapsed / 1000);
-			const timeStr = `${timeSec}s`;
-
-			// Context bar: compact 5-char bar + percent
-			const filled = Math.ceil(state.contextPct / 20);
-			const bar = "#".repeat(filled) + "-".repeat(5 - filled);
-			const ctxStr = `[${bar}]`;
-			const pctStr = `${Math.ceil(state.contextPct)}%`;
-
-			// Task / last work preview — fill whatever width remains
-			const workRaw = state.lastWork || state.task || state.def.description;
-
-			// Build the fixed-width prefix so we know how much space the preview gets
-			//   " ● Name          12s [##---] 40%  "
-			const prefixPlain = ` ${statusIcon} ${name} `;
-			const statsPlain = `${timeStr} ${ctxStr} ${pctStr}  `;
-			const availableForWork = width - visibleWidth(prefixPlain) - visibleWidth(statsPlain);
-			const workText = availableForWork > 4 ? truncate(workRaw, availableForWork) : "";
-
-			const line =
-				" " +
-				theme.fg(statusColor, statusIcon) + " " +
-				theme.fg("accent", theme.bold(name)) + " " +
-				theme.fg("dim", timeStr) + " " +
-				theme.fg("dim", ctxStr) + " " +
-				theme.fg("dim", pctStr) + "  " +
-				theme.fg("muted", workText);
-
-			lines.push(truncateToWidth(line, width));
-		}
-
-		// ── Idle agents: collapsed summary line ──
-		if (idle.length > 0) {
-			const idleNames = idle.map(a => displayName(a.def.name)).join(", ");
-			const prefix = " ○ Idle: ";
-			const availableForNames = width - prefix.length;
-			const namesText = idleNames.length > availableForNames
-				? idleNames.slice(0, availableForNames - 3) + "..."
-				: idleNames;
-			const line = theme.fg("dim", " ○ Idle: ") + theme.fg("dim", namesText);
-			lines.push(truncateToWidth(line, width));
+			lines.push(tiles.join(" ".repeat(gap)));
 		}
 
 		return lines;
@@ -735,24 +819,40 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("agents-grid", {
-		description: "Set grid columns (cards mode): /agents-grid <1-6>",
+		description: "Set grid columns: /agents-grid <1-6|auto>",
 		getArgumentCompletions: (prefix: string): AutocompleteItem[] | null => {
-			const items = ["1", "2", "3", "4", "5", "6"].map(n => ({
-				value: n,
-				label: `${n} columns`,
-			}));
+			const items: AutocompleteItem[] = [
+				...["1", "2", "3", "4", "5", "6"].map(n => ({
+					value: n,
+					label: `${n} columns`,
+				})),
+				{ value: "auto", label: "auto — size by team" },
+			];
 			const filtered = items.filter(i => i.value.startsWith(prefix));
 			return filtered.length > 0 ? filtered : items;
 		},
 		handler: async (args, _ctx) => {
 			widgetCtx = _ctx;
-			const n = parseInt(args?.trim() || "", 10);
+			const arg = (args ?? "").trim().toLowerCase();
+
+			if (arg === "auto") {
+				savedGridCols = undefined;
+				savePreferences({}, ["gridCols"]);
+				autoSizeGrid();
+				_ctx.ui.notify(`Grid set to auto (${gridCols} columns)`, "info");
+				updateWidget();
+				return;
+			}
+
+			const n = parseInt(arg, 10);
 			if (n >= 1 && n <= 6) {
 				gridCols = n;
+				savedGridCols = n;
+				savePreferences({ gridCols: n });
 				_ctx.ui.notify(`Grid set to ${gridCols} columns`, "info");
 				updateWidget();
 			} else {
-				_ctx.ui.notify("Usage: /agents-grid <1-6>", "error");
+				_ctx.ui.notify("Usage: /agents-grid <1-6|auto>", "error");
 			}
 		},
 	});
@@ -783,6 +883,7 @@ export default function (pi: ExtensionAPI) {
 				return;
 			}
 
+			savePreferences({ viewMode });
 			updateWidget();
 			_ctx.ui.notify(`View: ${viewMode}`, "info");
 		},
@@ -871,7 +972,7 @@ ${agentCatalog}`,
 			`Team sets loaded from: .pi/agents/teams.yaml\n\n` +
 			`/agents-team          Select a team\n` +
 			`/agents-list          List active agents and status\n` +
-			`/agents-grid <1-6>    Set grid column count (cards mode)\n` +
+			`/agents-grid <1-6|auto> Set grid column count\n` +
 			`/agents-view <mode>   Switch view: compact|cards|toggle`,
 			"info",
 		);
