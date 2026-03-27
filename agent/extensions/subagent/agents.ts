@@ -39,9 +39,12 @@ const CLAUDE_TOOL_MAP: Record<string, string> = {
 	"Write": "write",
 	"Edit": "edit",
 	"Bash": "bash",
-	"WebSearch": "bash",
-	"WebFetch": "bash",
+	"WebSearch": "web_search",
+	"WebFetch": "web_fetch",
 	"NotebookEdit": "write",
+	// MCP tools - firecrawl
+	"mcp__firecrawl-mcp__firecrawl_search": "web_search",
+	"mcp__firecrawl-mcp__firecrawl_scrape": "web_fetch",
 };
 
 /**

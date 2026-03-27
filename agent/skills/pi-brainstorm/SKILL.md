@@ -1,6 +1,6 @@
 ---
 name: pi-brainstorm
-description: Use only when explicitly invoked with /skill:pi-brainstorm (or a direct request to run this skill). Run a structured brainstorm for the current project: quick repo review, mandatory goal-and-preference interview, creative option generation, prioritization, and convergence to one actionable next step. Do not use for direct coding or full implementation planning.
+description: "Use only when explicitly invoked with /skill:pi-brainstorm (or a direct request to run this skill). Run a structured brainstorm for the current project: quick repo review, mandatory goal-and-preference interview, creative option generation, prioritization, and convergence to one actionable next step. Do not use for direct coding or full implementation planning."
 ---
 
 # Pi Brainstorm

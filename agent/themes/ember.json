@@ -3,23 +3,23 @@
   "name": "ember",
   "vars": {
     "crimson":    "#fc595f",
-    "ruby":       "#d3494e",
+    "ruby":       "#c96068",
     "garnet":     "#a63c40",
     "rosewood":   "#832e31",
     "blush":      "#df9395",
     "mauve":      "#ba8586",
     "steel":      "#8b999c",
-    "ash":        "#5a6568",
+    "ash":        "#728c93",
     "charcoal":   "#252525",
-    "smoke":      "#2a2d32",
+    "smoke":      "#2e323e",
     "sage":       "#8bb889",
     "amber":      "#e0a550",
     "frost":      "#d2dadd",
-    "bgDark":     "#121212",
+    "bgDark":     "#141414",
     "bgBase":     "#151515",
-    "bgLight":    "#1c1c1c",
-    "bgGreenTint":"#141e14",
-    "bgRedTint":  "#1e1214"
+    "bgLight":    "#382e2e",
+    "bgGreenTint":"#263226",
+    "bgRedTint":  "#3a2424"
   },
   "colors": {
     "accent":             "crimson",
@@ -84,8 +84,8 @@
     "bashMode":           "amber"
   },
   "export": {
-    "pageBg":  "#121212",
-    "cardBg":  "#1c1c1c",
+    "pageBg":  "#141414",
+    "cardBg":  "#382e2e",
     "infoBg":  "#252525"
   }
 }

@@ -22,9 +22,10 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import { Text, type AutocompleteItem, truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 import { spawn } from "child_process";
-import { readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
+import { readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, appendFileSync } from "fs";
 import { join, resolve } from "path";
-import { homedir } from "os";
+import { homedir, tmpdir } from "os";
+import { randomUUID } from "crypto";
 import { applyExtensionDefaults } from "./themeMap.ts";
 
 // ── Types ────────────────────────────────────────
@@ -53,6 +54,233 @@ interface AgentState {
 
 type ViewMode = "cards" | "compact";
 
+// ─── Team Communication Types ────────────────────────────────────────────────
+
+interface ChannelMessage {
+	id: string;
+	timestamp: string;
+	from_agent: string;
+	message_type: "discovery" | "decision" | "warning" | "question" | "disagreement";
+	content: string;
+	references?: string[];
+	priority?: "low" | "normal" | "high";
+}
+
+interface InputRequest {
+	id: string;
+	timestamp: string;
+	from_agent: string;
+	to_agent: string;
+	question: string;
+	context?: string;
+}
+
+interface InputResponse {
+	request_id: string;
+	timestamp: string;
+	from_agent: string;
+	content: string;
+	status: "answered" | "declined" | "timeout";
+}
+
+// Team comms constants
+const COMMS_DIR_NAME = ".pi/team-comms";
+const COMMS_CHANNEL_FILE = "channel.jsonl";
+const COMMS_REQUESTS_DIR = "requests";
+const COMMS_RESPONSES_DIR = "responses";
+const REQUEST_WATCHER_INTERVAL_MS = 500;
+const REQUEST_TIMEOUT_MS = 120_000;
+const COMMS_DEBUG = process.env.PI_COMMS_DEBUG === "1";
+
+
+// ─── Team Communication Helpers ──────────────────────────────────────────────
+
+function getCommsDir(cwd: string): string {
+  return resolve(cwd, COMMS_DIR_NAME);
+}
+
+function readChannelMessages(cwd: string): ChannelMessage[] {
+  const channelFile = join(getCommsDir(cwd), COMMS_CHANNEL_FILE);
+  if (!existsSync(channelFile)) return [];
+  try {
+    const raw = readFileSync(channelFile, "utf-8");
+    return raw.split("\n").filter((line) => line.trim()).map((line) => {
+      try { return JSON.parse(line) as ChannelMessage; } catch { return null; }
+    }).filter((msg): msg is ChannelMessage => msg !== null);
+  } catch { return []; }
+}
+
+function curateMessagesForAgent(messages: ChannelMessage[], agentName: string): ChannelMessage[] {
+  const MAX_CURATED = 20;
+  const mentionsAgent = messages.filter((m) => m.from_agent !== agentName && m.content.toLowerCase().includes(agentName.toLowerCase()));
+  const highPriority = messages.filter((m) => m.from_agent !== agentName && m.priority === "high" && !mentionsAgent.includes(m));
+  const rest = messages.filter((m) => m.from_agent !== agentName && !mentionsAgent.includes(m) && !highPriority.includes(m));
+  return [...mentionsAgent, ...highPriority, ...rest.slice(-MAX_CURATED)].slice(-MAX_CURATED);
+}
+
+function formatCuratedMessages(messages: ChannelMessage[]): string {
+  if (messages.length === 0) return "";
+  const lines = messages.map((m) => {
+    const icon: Record<string, string> = { discovery: "🔍", decision: "✅", warning: "⚠️", question: "❓", disagreement: "🔴" };
+    const refs = m.references?.length ? " [refs: " + m.references.join(", ") + "]" : "";
+    return (icon[m.message_type] || "💬") + " **" + m.from_agent + "** (" + m.message_type + "): " + m.content + refs;
+  });
+  return "\n## Team Channel (Recent Messages)\n\n" + lines.join("\n\n") + "\n";
+}
+// ─── Request Routing State ───────────────────────────────────────────────────
+
+let agentStates: Map<string, AgentState> = new Map();
+const agentMessageCounts = new Map<string, number>();
+const activeRequests = new Map<string, InputRequest>();
+const completedRequests = new Map<string, InputResponse>();
+const processedRequestIds = new Set<string>();
+let requestWatcherInterval: ReturnType<typeof setInterval> | null = null;
+
+function writeDeclinedResponse(responsesDir: string, requestId: string, fromAgent: string, reason: string): void {
+  const response: InputResponse = {
+    request_id: requestId,
+    timestamp: new Date().toISOString(),
+    from_agent: fromAgent,
+    content: reason,
+    status: "declined",
+  };
+  writeFileSync(join(responsesDir, `${requestId}.json`), JSON.stringify(response, null, 2), "utf-8");
+}
+function watcherLog(commsDir: string, msg: string): void {
+  if (!COMMS_DEBUG) return;
+  try {
+    const logFile = join(commsDir, "watcher.log");
+    appendFileSync(logFile, `[${new Date().toISOString()}] ${msg}\n`, "utf-8");
+  } catch {}
+}
+
+function startRequestWatcher(cwd: string, ctx: any): void {
+  if (requestWatcherInterval) return;
+  const commsDir = getCommsDir(cwd);
+  const requestsDir = join(commsDir, COMMS_REQUESTS_DIR);
+  const responsesDir = join(commsDir, COMMS_RESPONSES_DIR);
+  watcherLog(commsDir, `watcher started for path: ${requestsDir} | agentStates size: ${agentStates.size}`);
+  requestWatcherInterval = setInterval(async () => {
+    watcherLog(commsDir, `watcher tick at ${new Date().toISOString()}`);
+    const messages = readChannelMessages(cwd);
+    agentMessageCounts.clear();
+    for (const msg of messages) {
+      agentMessageCounts.set(msg.from_agent, (agentMessageCounts.get(msg.from_agent) || 0) + 1);
+    }
+    const dirExists = existsSync(requestsDir);
+    watcherLog(commsDir, `requestsDir exists: ${dirExists}`);
+    if (!dirExists) return;
+    try {
+      const files = readdirSync(requestsDir).filter((f: string) => f.endsWith(".json"));
+      watcherLog(commsDir, `found ${files.length} files: [${files.join(", ")}]`);
+      for (const file of files) {
+        const requestId = file.replace(".json", "");
+        watcherLog(commsDir, `checking requestId=${requestId} inSet=${processedRequestIds.has(requestId)} setSize=${processedRequestIds.size} setContents=[${Array.from(processedRequestIds).join(",")}]`);
+        if (processedRequestIds.has(requestId)) continue;
+        processedRequestIds.add(requestId);
+        watcherLog(commsDir, `processing request ${requestId}`);
+        const requestFile = join(requestsDir, file);
+        try {
+          const raw = readFileSync(requestFile, "utf-8");
+          const request: InputRequest = JSON.parse(raw);
+          activeRequests.set(requestId, request);
+          await handleInputRequest(request, cwd, responsesDir, ctx);
+          watcherLog(commsDir, `handled request ${requestId}`);
+          try { unlinkSync(join(requestsDir, file)); } catch {}
+        } catch (err) {
+          watcherLog(commsDir, `error parsing request ${requestId}: ${err}`);
+          writeDeclinedResponse(responsesDir, requestId, "system", "Malformed request");
+        }
+      }
+    } catch (err) {
+      watcherLog(commsDir, `error in watcher outer try: ${err}`);
+    }
+  }, REQUEST_WATCHER_INTERVAL_MS);
+}
+
+function stopRequestWatcher(): void {
+  if (requestWatcherInterval) {
+    clearInterval(requestWatcherInterval);
+    requestWatcherInterval = null;
+  }
+  processedRequestIds.clear();
+  activeRequests.clear();
+  completedRequests.clear();
+  agentMessageCounts.clear();
+}
+async function handleInputRequest(request: InputRequest, cwd: string, responsesDir: string, ctx: any): Promise<void> {
+  const commsDir = getCommsDir(cwd);
+  const targetKey = request.to_agent.toLowerCase().replace(/\s+/g, "-");
+  const targetState = agentStates.get(targetKey);
+  watcherLog(commsDir, `handleInputRequest: to_agent="${request.to_agent}" targetKey="${targetKey}" found=${!!targetState} agentStates.size=${agentStates.size} keys=[${Array.from(agentStates.keys()).join(", ")}]`);
+  if (!targetState) {
+    writeDeclinedResponse(responsesDir, request.id, "system",
+      `Agent "${request.to_agent}" is not on this team. Available: ${Array.from(agentStates.keys()).join(", ")}`);
+    activeRequests.delete(request.id);
+    return;
+  }
+  if (targetState.status === "running") {
+    writeDeclinedResponse(responsesDir, request.id, request.to_agent,
+      `${request.to_agent} is currently busy. Try again later or ask a different teammate.`);
+    activeRequests.delete(request.id);
+    return;
+  }
+  const formattedTask = `A teammate (${request.from_agent}) is asking for your input:\n\n**Question:** ${request.question}${request.context ? `\n\n**Context:** ${request.context}` : ""}\n\nPlease provide a helpful, focused response.`;
+  try {
+    const agentSessionFile = join(cwd, ".pi", "agent-sessions", `${targetKey}.json`);
+    const commsDir = getCommsDir(cwd);
+    const args = [
+      "--mode", "json", "-p",
+      "--no-extensions", "-e", resolve(homedir(), ".pi/agent/extensions/team-comms.ts"),
+      "--model", targetState.def.model || "anthropic/claude-sonnet-4-20250514",
+      "--tools", targetState.def.tools,
+      "--thinking", "off",
+      "--append-system-prompt", targetState.def.systemPrompt,
+      "--session", agentSessionFile,
+    ];
+    if (existsSync(agentSessionFile)) args.push("-c");
+    args.push(formattedTask);
+    const proc = spawn("pi", args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, PI_AGENT_NAME: targetKey, PI_TEAM_COMMS_DIR: commsDir, PI_COMMS_DEPTH: "1" },
+    });
+    let output = "";
+    let hBuffer = "";
+    proc.stdout!.setEncoding("utf-8");
+    proc.stdout!.on("data", (chunk: string) => {
+      hBuffer += chunk;
+      const hLines = hBuffer.split("\n");
+      hBuffer = hLines.pop() || "";
+      for (const line of hLines) {
+        if (!line.trim()) continue;
+        try {
+          const event = JSON.parse(line);
+          if (event.type === "message_update") {
+            const delta = event.assistantMessageEvent;
+            if (delta?.type === "text_delta") {
+              output += delta.delta || "";
+            }
+          }
+        } catch {}
+      }
+    });
+    await new Promise<void>((res) => {
+      proc.on("close", () => {
+        const response: InputResponse = {
+          request_id: request.id, timestamp: new Date().toISOString(),
+          from_agent: targetKey, content: output || "No response generated.", status: "answered",
+        };
+        writeFileSync(join(responsesDir, `${request.id}.json`), JSON.stringify(response, null, 2), "utf-8");
+        activeRequests.delete(request.id);
+        completedRequests.set(request.id, response);
+        res();
+      });
+    });
+  } catch (err) {
+    writeDeclinedResponse(responsesDir, request.id, request.to_agent, `Error dispatching ${request.to_agent}: ${err}`);
+    activeRequests.delete(request.id);
+  }
+}
 // ── Preference Persistence ────────────────────────
 
 interface TeamPrefs {
@@ -217,7 +445,7 @@ function loadDispatcherGuide(cwd: string): string {
 // ── Extension ────────────────────────────────────
 
 export default function (pi: ExtensionAPI) {
-	const agentStates: Map<string, AgentState> = new Map();
+	agentStates.clear();
 	let allAgentDefs: AgentDef[] = [];
 	let teams: Record<string, string[]> = {};
 	let activeTeamName = "";
@@ -274,7 +502,7 @@ export default function (pi: ExtensionAPI) {
 			if (!def) continue;
 			const key = def.name.toLowerCase().replace(/\s+/g, "-");
 			const sessionFile = join(sessionDir, `${key}.json`);
-			agentStates.set(def.name.toLowerCase(), {
+			agentStates.set(key, {
 				def,
 				status: "idle",
 				task: "",
@@ -319,8 +547,15 @@ export default function (pi: ExtensionAPI) {
 
 		const statusStr = `${statusIcon} ${state.status}`;
 		const timeStr = state.status !== "idle" ? ` ${Math.round(state.elapsed / 1000)}s` : "";
-		const statusLine = theme.fg(statusColor, statusStr + timeStr);
-		const statusVisible = statusStr.length + timeStr.length;
+		const agentKey = state.def.name.toLowerCase().replace(/\s+/g, "-");
+		const msgCount = agentMessageCounts.get(agentKey) || 0;
+		const hasPending = Array.from(activeRequests.values()).some(r => r.from_agent === agentKey);
+		const commsParts: string[] = [];
+		if (msgCount > 0) commsParts.push(`💬${msgCount}`);
+		if (hasPending) commsParts.push("⏳");
+		const commsStr = commsParts.length > 0 ? `  ${commsParts.join(" ")}` : "";
+		const statusLine = theme.fg(statusColor, statusStr + timeStr + commsStr);
+		const statusVisible = statusStr.length + timeStr.length + commsStr.length;
 
 		// Context bar: 5 blocks + percent
 		const filled = Math.ceil(state.contextPct / 20);
@@ -372,6 +607,12 @@ export default function (pi: ExtensionAPI) {
 
 		// ── Right-side stats (built plain first to measure) ──
 		const parts: string[] = [];
+		const agentKey = state.def.name.toLowerCase().replace(/\s+/g, "-");
+		const msgCount = agentMessageCounts.get(agentKey) || 0;
+		const hasPending = Array.from(activeRequests.values()).some(r => r.from_agent === agentKey);
+
+		if (msgCount > 0) parts.push(`💬${msgCount}`);
+		if (hasPending) parts.push("⏳");
 
 		// Runs (only if agent has been dispatched)
 		if (state.runCount > 0) parts.push(`#${state.runCount}`);
@@ -519,7 +760,7 @@ export default function (pi: ExtensionAPI) {
 		task: string,
 		ctx: any,
 	): Promise<{ output: string; exitCode: number; elapsed: number }> {
-		const key = agentName.toLowerCase();
+		const key = agentName.toLowerCase().replace(/\s+/g, "-");
 		const state = agentStates.get(key);
 		if (!state) {
 			return Promise.resolve({
@@ -559,14 +800,25 @@ export default function (pi: ExtensionAPI) {
 		const agentSessionFile = join(sessionDir, `${agentKey}.json`);
 
 		// Build args — first run creates session, subsequent runs resume
+		const teamRoster = Array.from(agentStates.values())
+			.map(s => `- ${s.def.name}: ${s.def.description}`)
+			.join("\n");
+		const teamRosterBlock = `## Your Team\nYou are ${state.def.name} on a team with:\n${teamRoster}\n\n## Team Communication\nYou have two tools for team communication:\n- post_to_channel: Share discoveries, decisions, warnings, or disagreements with the team\n- request_input: Ask a specific teammate a question and wait for their response`;
+		const allMessages = readChannelMessages(ctx.cwd);
+		const curated = curateMessagesForAgent(allMessages, agentKey);
+		const curatedMessagesBlock = formatCuratedMessages(curated);
+		const combinedPrompt = `${teamRosterBlock}${curatedMessagesBlock}\n\n${state.def.systemPrompt}`;
+		const promptFile = join(tmpdir(), `pi-team-comms-prompt-${agentKey}-${randomUUID()}.txt`);
+		writeFileSync(promptFile, combinedPrompt, "utf-8");
+
 		const args = [
 			"--mode", "json",
 			"-p",
-			"--no-extensions",
+			"--no-extensions", "-e", resolve(homedir(), ".pi/agent/extensions/team-comms.ts"),
 			"--model", model,
 			"--tools", state.def.tools,
 			"--thinking", "off",
-			"--append-system-prompt", state.def.systemPrompt,
+			"--append-system-prompt", promptFile,
 			"--session", agentSessionFile,
 		];
 
@@ -579,10 +831,14 @@ export default function (pi: ExtensionAPI) {
 
 		const textChunks: string[] = [];
 
-		return new Promise((resolve) => {
+		return new Promise((resolvePromise) => {
 			const proc = spawn("pi", args, {
 				stdio: ["ignore", "pipe", "pipe"],
-				env: { ...process.env },
+				env: {
+					...process.env,
+					PI_AGENT_NAME: agentKey,
+					PI_TEAM_COMMS_DIR: resolve(ctx.cwd, COMMS_DIR_NAME),
+				},
 			});
 
 			let buffer = "";
@@ -630,6 +886,7 @@ export default function (pi: ExtensionAPI) {
 			proc.stderr!.on("data", () => {});
 
 			proc.on("close", (code) => {
+				try { unlinkSync(promptFile); } catch {}
 				if (buffer.trim()) {
 					try {
 						const event = JSON.parse(buffer);
@@ -658,7 +915,7 @@ export default function (pi: ExtensionAPI) {
 					state.status === "done" ? "success" : "error"
 				);
 
-				resolve({
+				resolvePromise({
 					output: full,
 					exitCode: code ?? 1,
 					elapsed: state.elapsed,
@@ -670,7 +927,7 @@ export default function (pi: ExtensionAPI) {
 				state.status = "error";
 				state.lastWork = `Error: ${err.message}`;
 				updateWidget();
-				resolve({
+				resolvePromise({
 					output: `Error spawning agent: ${err.message}`,
 					exitCode: 1,
 					elapsed: Date.now() - startTime,
@@ -889,6 +1146,46 @@ export default function (pi: ExtensionAPI) {
 		},
 	});
 
+	pi.registerCommand("agents-comms", {
+		description: "Show team channel history and active requests",
+		handler: async (_args, ctx) => {
+			const messages = readChannelMessages(ctx.cwd);
+			const recent = messages.slice(-20);
+			const iconByType: Record<string, string> = {
+				discovery: "🔍",
+				decision: "✅",
+				warning: "⚠️",
+				question: "❓",
+				disagreement: "🔴",
+			};
+
+			const lines: string[] = [];
+			if (recent.length > 0) {
+				lines.push("Recent channel messages:");
+				for (const m of recent) {
+					const icon = iconByType[m.message_type] || "💬";
+					lines.push(`${icon} ${m.from_agent} (${m.message_type}): ${m.content}`);
+				}
+			}
+
+			const pending = Array.from(activeRequests.values());
+			if (pending.length > 0) {
+				if (lines.length > 0) lines.push("");
+				lines.push("Active requests:");
+				for (const req of pending) {
+					lines.push(`⏳ ${req.from_agent} → ${req.to_agent}: ${req.question}`);
+				}
+			}
+
+			if (lines.length === 0) {
+				ctx.ui.notify("No team comms activity yet", "info");
+				return;
+			}
+
+			ctx.ui.notify(lines.join("\n"), "info");
+		},
+	});
+
 	// ── System Prompt Override ───────────────────
 
 	pi.on("before_agent_start", async (_event, _ctx) => {
@@ -954,6 +1251,27 @@ ${agentCatalog}`,
 			}
 		}
 
+		stopRequestWatcher();
+
+		const commsDir = resolve(_ctx.cwd, COMMS_DIR_NAME);
+		const requestsDir = join(commsDir, COMMS_REQUESTS_DIR);
+		const responsesDir = join(commsDir, COMMS_RESPONSES_DIR);
+		mkdirSync(commsDir, { recursive: true });
+		mkdirSync(requestsDir, { recursive: true });
+		mkdirSync(responsesDir, { recursive: true });
+		const channelFile = join(commsDir, COMMS_CHANNEL_FILE);
+		if (existsSync(channelFile)) {
+			try { unlinkSync(channelFile); } catch {}
+		}
+		for (const dir of [requestsDir, responsesDir]) {
+			if (!existsSync(dir)) continue;
+			for (const f of readdirSync(dir)) {
+				if (f.endsWith(".json")) {
+					try { unlinkSync(join(dir, f)); } catch {}
+				}
+			}
+		}
+
 		loadAgents(_ctx.cwd);
 
 		// Default to first team — use /agents-team to switch
@@ -961,6 +1279,9 @@ ${agentCatalog}`,
 		if (teamNames.length > 0) {
 			activateTeam(teamNames[0]);
 		}
+
+		// Start request watcher for team communication
+		startRequestWatcher(_ctx.cwd, _ctx);
 
 		// Lock down to dispatcher-only (tool already registered at top level)
 		pi.setActiveTools(["dispatch_agent"]);
@@ -999,4 +1320,7 @@ ${agentCatalog}`,
 			},
 		}));
 	});
+
+  // Clean up request watcher on process exit
+  process.on("exit", () => { stopRequestWatcher(); });
 }
