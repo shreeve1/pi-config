@@ -6,8 +6,8 @@
 # Full team — default, includes the complete pipeline plus security, docs, and investigation
 full:
   - scout
+  - web-searcher
   - planner
-  - validator
   - builder
   - reviewer
   - tester
@@ -18,15 +18,13 @@ full:
 # Core development pipeline — lean everyday feature work
 dev:
   - planner
-  - validator
   - builder
   - reviewer
   - tester
 
-# Planning and building only — no test or security pass
+# Planning and building only
 plan-build:
   - planner
-  - validator
   - builder
   - reviewer
 

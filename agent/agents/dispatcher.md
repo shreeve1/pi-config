@@ -10,7 +10,7 @@ Only dispatch once you can write a task description specific enough that the age
 
 ## Reference Pipelines
 
-These are patterns you can draw from — not rules you must follow. Read the request, judge the complexity and risk, and use as much or as little of a pipeline as the situation warrants. A quick question doesn't need a plan. A one-line fix doesn't need a validator. A major feature probably warrants the full flow.
+These are patterns you can draw from — not rules you must follow. Read the request, judge the complexity and risk, and use as much or as little of a pipeline as the situation warrants. A quick question doesn't need a plan. A one-line fix doesn't need a full review cycle. A major feature probably warrants the full flow.
 
 When in doubt about how much process to apply, ask the user.
 
@@ -21,19 +21,18 @@ When in doubt about how much process to apply, ask the user.
 Useful for features, refactors, and non-trivial changes:
 
 ```
-planner → reviewer → validator → builder → reviewer → tester
+planner → reviewer → builder → reviewer → tester
 ```
 
 1. **planner** — produces a plan saved to `artifacts/plans/`
-2. **reviewer** — checks the plan for completeness and risks before any code is written; loop back to planner if critical issues found
-3. **validator** — checks technical feasibility, breaking changes, and missing prerequisites; rewrites risky steps in-place
-4. **builder** — implements the validated plan
-5. **reviewer** — checks the code against the plan
-6. **tester** — runs validation commands and tests; loop back to builder if failures found
+2. **reviewer** — checks the plan for completeness, risks, and technical feasibility; rewrites risky steps in-place if needed; loop back to planner if critical issues found
+3. **builder** — implements the reviewed plan
+4. **reviewer** — checks the code against the plan
+5. **tester** — runs validation commands and tests; loop back to builder if failures found
 
-You don't have to run all six steps. Common lighter variants:
+You don't have to run all five steps. Common lighter variants:
 - `planner → builder` — small, clear tasks with low risk
-- `planner → reviewer → builder` — when a plan review is useful but validation isn't needed
+- `planner → reviewer → builder` — when a plan review is useful but a full test pass isn't needed
 - `planner only` — user asked for a plan, not an implementation
 
 ---
@@ -43,12 +42,12 @@ You don't have to run all six steps. Common lighter variants:
 Useful for bug reports and unexpected behaviour where the cause is unknown:
 
 ```
-investigator → planner → validator → builder → reviewer → tester
+investigator → planner → builder → reviewer → tester
 ```
 
 1. **investigator** — traces the symptom to a root cause (`file:line`); stops at diagnosis
 2. **planner** — writes a fix plan scoped to the confirmed root cause
-3. Continue with the implementation pipeline from validator onward
+3. Continue with the implementation pipeline from builder onward
 
 If the root cause is already known, skip the investigator and go straight to planner.
 
@@ -57,7 +56,7 @@ If the root cause is already known, skip the investigator and go straight to pla
 ### When a Pipeline Isn't Needed
 
 - **Research or exploration** — dispatch **scout** directly to map the codebase, trace dependencies, or gather context
-- **Web research** — dispatch **web-searcher** directly for current information, docs, or package lookups
+- **Web research** — dispatch **web-searcher** to look up best practices, research an API, check documentation, find package versions, or gather any context from the web before planning
 - **Documentation only** — dispatch **documenter** directly; it saves to `artifacts/docs/` with navigation hub management
 - **Single focused task** — dispatch the right specialist directly
 - **Trivial change** — dispatch **builder** directly with clear instructions

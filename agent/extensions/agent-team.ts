@@ -12,7 +12,8 @@
  * Commands:
  *   /agents-team          — switch active team
  *   /agents-list          — list loaded agents
- *   /agents-grid N        — set column count (default 2)
+ *   /agents-grid N        — set column count (default 2, cards mode only)
+ *   /agents-view <mode>   — switch between compact|cards|toggle
  *
  * Usage: pi -e extensions/agent-team.ts
  */
@@ -49,6 +50,8 @@ interface AgentState {
 	runCount: number;
 	timer?: ReturnType<typeof setInterval>;
 }
+
+type ViewMode = "cards" | "compact";
 
 // ── Display Name Helper ──────────────────────────
 
@@ -177,6 +180,7 @@ export default function (pi: ExtensionAPI) {
 	let teams: Record<string, string[]> = {};
 	let activeTeamName = "";
 	let gridCols = 2;
+	let viewMode: ViewMode = "cards";
 	let widgetCtx: any;
 	let sessionDir = "";
 	let contextWindow = 0;
@@ -244,7 +248,7 @@ export default function (pi: ExtensionAPI) {
 		gridCols = size <= 3 ? size : size === 4 ? 2 : 3;
 	}
 
-	// ── Grid Rendering ───────────────────────────
+	// ── Card Rendering (original bordered grid) ──
 
 	function renderCard(state: AgentState, colWidth: number, theme: any): string[] {
 		const w = colWidth - 2;
@@ -295,14 +299,99 @@ export default function (pi: ExtensionAPI) {
 		];
 	}
 
+	// ── Compact Rendering ────────────────────────
+
+	function renderCompact(width: number, theme: any): string[] {
+		const agents = Array.from(agentStates.values());
+		if (agents.length === 0) {
+			return [theme.fg("dim", "No agents found. Add .md files to agents/")];
+		}
+
+		const truncate = (s: string, max: number) => s.length > max ? s.slice(0, max - 3) + "..." : s;
+
+		const idle: AgentState[] = [];
+		const nonIdle: AgentState[] = [];
+		for (const a of agents) {
+			if (a.status === "idle") idle.push(a);
+			else nonIdle.push(a);
+		}
+
+		const lines: string[] = [];
+
+		// ── Non-idle agents: one line each ──
+		for (const state of nonIdle) {
+			const statusColor = state.status === "running" ? "accent"
+				: state.status === "done" ? "success" : "error";
+			const statusIcon = state.status === "running" ? "●"
+				: state.status === "done" ? "✓" : "✗";
+
+			const name = displayName(state.def.name);
+
+			// Elapsed time — right-align in a small field for visual alignment
+			const timeSec = Math.round(state.elapsed / 1000);
+			const timeStr = `${timeSec}s`;
+
+			// Context bar: compact 5-char bar + percent
+			const filled = Math.ceil(state.contextPct / 20);
+			const bar = "#".repeat(filled) + "-".repeat(5 - filled);
+			const ctxStr = `[${bar}]`;
+			const pctStr = `${Math.ceil(state.contextPct)}%`;
+
+			// Task / last work preview — fill whatever width remains
+			const workRaw = state.lastWork || state.task || state.def.description;
+
+			// Build the fixed-width prefix so we know how much space the preview gets
+			//   " ● Name          12s [##---] 40%  "
+			const prefixPlain = ` ${statusIcon} ${name} `;
+			const statsPlain = `${timeStr} ${ctxStr} ${pctStr}  `;
+			const availableForWork = width - visibleWidth(prefixPlain) - visibleWidth(statsPlain);
+			const workText = availableForWork > 4 ? truncate(workRaw, availableForWork) : "";
+
+			const line =
+				" " +
+				theme.fg(statusColor, statusIcon) + " " +
+				theme.fg("accent", theme.bold(name)) + " " +
+				theme.fg("dim", timeStr) + " " +
+				theme.fg("dim", ctxStr) + " " +
+				theme.fg("dim", pctStr) + "  " +
+				theme.fg("muted", workText);
+
+			lines.push(truncateToWidth(line, width));
+		}
+
+		// ── Idle agents: collapsed summary line ──
+		if (idle.length > 0) {
+			const idleNames = idle.map(a => displayName(a.def.name)).join(", ");
+			const prefix = " ○ Idle: ";
+			const availableForNames = width - prefix.length;
+			const namesText = idleNames.length > availableForNames
+				? idleNames.slice(0, availableForNames - 3) + "..."
+				: idleNames;
+			const line = theme.fg("dim", " ○ Idle: ") + theme.fg("dim", namesText);
+			lines.push(truncateToWidth(line, width));
+		}
+
+		return lines;
+	}
+
+	// ── Widget Update (dispatches to view mode) ──
+
 	function updateWidget() {
 		if (!widgetCtx) return;
 
 		widgetCtx.ui.setWidget("agent-team", (_tui: any, theme: any) => {
-			const text = new Text("", 0, 1);
+			// Cards mode uses paddingY 1 (original behavior); compact uses 0
+			const text = new Text("", 0, viewMode === "cards" ? 1 : 0);
 
 			return {
 				render(width: number): string[] {
+					if (viewMode === "compact") {
+						const compactLines = renderCompact(width, theme);
+						text.setText(compactLines.join("\n"));
+						return text.render(width);
+					}
+
+					// ── Cards mode (original grid) ──
 					if (agentStates.size === 0) {
 						text.setText(theme.fg("dim", "No agents found. Add .md files to agents/"));
 						return text.render(width);
@@ -646,7 +735,7 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("agents-grid", {
-		description: "Set grid columns: /agents-grid <1-6>",
+		description: "Set grid columns (cards mode): /agents-grid <1-6>",
 		getArgumentCompletions: (prefix: string): AutocompleteItem[] | null => {
 			const items = ["1", "2", "3", "4", "5", "6"].map(n => ({
 				value: n,
@@ -665,6 +754,37 @@ export default function (pi: ExtensionAPI) {
 			} else {
 				_ctx.ui.notify("Usage: /agents-grid <1-6>", "error");
 			}
+		},
+	});
+
+	pi.registerCommand("agents-view", {
+		description: "Switch widget view: /agents-view <compact|cards|toggle>",
+		getArgumentCompletions: (prefix: string): AutocompleteItem[] | null => {
+			const items: AutocompleteItem[] = [
+				{ value: "compact", label: "compact — one-line-per-agent, idle collapsed" },
+				{ value: "cards",   label: "cards — bordered card grid (original)" },
+				{ value: "toggle",  label: "toggle — switch between compact and cards" },
+			];
+			const filtered = items.filter(i => i.value.startsWith(prefix));
+			return filtered.length > 0 ? filtered : items;
+		},
+		handler: async (args, _ctx) => {
+			widgetCtx = _ctx;
+			const arg = (args ?? "").trim().toLowerCase();
+
+			if (arg === "compact") {
+				viewMode = "compact";
+			} else if (arg === "cards") {
+				viewMode = "cards";
+			} else if (arg === "toggle" || arg === "") {
+				viewMode = viewMode === "cards" ? "compact" : "cards";
+			} else {
+				_ctx.ui.notify("Usage: /agents-view <compact|cards|toggle>", "error");
+				return;
+			}
+
+			updateWidget();
+			_ctx.ui.notify(`View: ${viewMode}`, "info");
 		},
 	});
 
@@ -751,7 +871,8 @@ ${agentCatalog}`,
 			`Team sets loaded from: .pi/agents/teams.yaml\n\n` +
 			`/agents-team          Select a team\n` +
 			`/agents-list          List active agents and status\n` +
-			`/agents-grid <1-6>    Set grid column count`,
+			`/agents-grid <1-6>    Set grid column count (cards mode)\n` +
+			`/agents-view <mode>   Switch view: compact|cards|toggle`,
 			"info",
 		);
 		updateWidget();
