@@ -6,8 +6,9 @@
  * maintains its own Pi session for cross-invocation memory.
  *
  * Loads agent definitions from agents/*.md, .claude/agents/*.md, .pi/agents/*.md.
- * Teams are defined in .pi/agents/teams.yaml — on boot a select dialog lets
- * you pick which team to work with. Only team members are available for dispatch.
+ * Teams are discovered folder-first from agents/teams/{name}/team.yaml (and equivalent
+ * search roots), with fallback to .pi/agents/teams.yaml for unmigrated teams.
+ * Folder-defined teams take precedence over teams.yaml entries.
  *
  * Commands:
  *   /agents-team          — switch active team
@@ -23,7 +24,7 @@ import { Type } from "@sinclair/typebox";
 import { Text, type AutocompleteItem, truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 import { spawn } from "child_process";
 import { readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, appendFileSync } from "fs";
-import { join, resolve } from "path";
+import { join, resolve, basename } from "path";
 import { homedir, tmpdir } from "os";
 import { randomUUID } from "crypto";
 import { applyExtensionDefaults } from "./themeMap.ts";
@@ -53,6 +54,15 @@ interface AgentState {
 }
 
 type ViewMode = "cards" | "compact";
+
+interface TeamMeta {
+	name: string;
+	agents: string[];
+	dispatcher: string;
+	brief: string;
+	source: "folder" | "yaml";
+	dir: string;
+}
 
 // ─── Team Communication Types ────────────────────────────────────────────────
 
@@ -99,6 +109,65 @@ function getCommsDir(cwd: string): string {
   return resolve(cwd, COMMS_DIR_NAME);
 }
 
+function ensureCommsDirs(commsDir: string): void {
+  mkdirSync(commsDir, { recursive: true });
+  mkdirSync(join(commsDir, COMMS_REQUESTS_DIR), { recursive: true });
+  mkdirSync(join(commsDir, COMMS_RESPONSES_DIR), { recursive: true });
+}
+
+function readContextFile(tDir: string): string {
+  if (!tDir) return "";
+  const p = join(tDir, "context.md");
+  if (!existsSync(p)) return "";
+  try { return readFileSync(p, "utf-8").trim(); } catch { return ""; }
+}
+
+function readExpertiseFile(tDir: string, agentName: string): string {
+  if (!tDir) return "";
+  const slug = agentName.toLowerCase().replace(/[^a-z0-9-]/g, "-");
+  const p = join(tDir, "expertise", `${slug}.md`);
+  if (!existsSync(p)) return "";
+  try {
+    const content = readFileSync(p, "utf-8").trim();
+    if (Buffer.byteLength(content) > 65536) {
+      return Buffer.from(content).subarray(0, 65536).toString("utf-8") + "\n\n[expertise truncated]";
+    }
+    return content;
+  } catch { return ""; }
+}
+
+interface SessionNote { timestamp: string; note: string; }
+
+function readSessionNotes(tDir: string, agentName: string, limit: number = 20): SessionNote[] {
+  if (!tDir) return [];
+  const slug = agentName.toLowerCase().replace(/[^a-z0-9-]/g, "-");
+  const p = join(tDir, "session-notes", `${slug}.jsonl`);
+  if (!existsSync(p)) return [];
+  try {
+    const raw = readFileSync(p, "utf-8");
+    const entries = raw.split("\n").filter(l => l.trim()).map(line => {
+      try { return JSON.parse(line) as SessionNote; } catch { return null; }
+    }).filter((n): n is SessionNote => n !== null);
+    return entries.slice(-limit);
+  } catch { return []; }
+}
+
+function formatSessionNotesBlock(notes: SessionNote[]): string {
+  if (notes.length === 0) return "";
+  const lines = notes.map(n => `- **${n.timestamp}**: ${n.note}`);
+  return "\n## Recent Session Notes\n\n" + lines.join("\n") + "\n";
+}
+
+function formatExpertiseBlock(content: string): string {
+  if (!content) return "";
+  return "\n## Your Expertise\n\n" + content + "\n";
+}
+
+function formatContextBlock(content: string): string {
+  if (!content) return "";
+  return "\n## Shared Domain Context\n\n" + content + "\n";
+}
+
 function readChannelMessages(cwd: string): ChannelMessage[] {
   const channelFile = join(getCommsDir(cwd), COMMS_CHANNEL_FILE);
   if (!existsSync(channelFile)) return [];
@@ -132,9 +201,10 @@ function formatCuratedMessages(messages: ChannelMessage[]): string {
 let agentStates: Map<string, AgentState> = new Map();
 const agentMessageCounts = new Map<string, number>();
 const activeRequests = new Map<string, InputRequest>();
-const completedRequests = new Map<string, InputResponse>();
-const processedRequestIds = new Set<string>();
-let requestWatcherInterval: ReturnType<typeof setInterval> | null = null;
+const processedRequestIds = new Map<string, number>();
+const inFlightTargets = new Map<string, string>();
+let watcherRunning = false;
+let activeTeamDir: string = "";
 
 function writeDeclinedResponse(responsesDir: string, requestId: string, fromAgent: string, reason: string): void {
   const response: InputResponse = {
@@ -155,58 +225,72 @@ function watcherLog(commsDir: string, msg: string): void {
 }
 
 function startRequestWatcher(cwd: string, ctx: any): void {
-  if (requestWatcherInterval) return;
+  if (watcherRunning) return;
+  watcherRunning = true;
   const commsDir = getCommsDir(cwd);
   const requestsDir = join(commsDir, COMMS_REQUESTS_DIR);
   const responsesDir = join(commsDir, COMMS_RESPONSES_DIR);
   watcherLog(commsDir, `watcher started for path: ${requestsDir} | agentStates size: ${agentStates.size}`);
-  requestWatcherInterval = setInterval(async () => {
+
+  async function tick() {
+    if (!watcherRunning) return;
     watcherLog(commsDir, `watcher tick at ${new Date().toISOString()}`);
+
+    const now = Date.now();
+    for (const [id, ts] of processedRequestIds) {
+      if (now - ts > 5 * 60 * 1000) processedRequestIds.delete(id);
+    }
+
     const messages = readChannelMessages(cwd);
     agentMessageCounts.clear();
     for (const msg of messages) {
       agentMessageCounts.set(msg.from_agent, (agentMessageCounts.get(msg.from_agent) || 0) + 1);
     }
+
+    ensureCommsDirs(commsDir);
     const dirExists = existsSync(requestsDir);
     watcherLog(commsDir, `requestsDir exists: ${dirExists}`);
-    if (!dirExists) return;
-    try {
-      const files = readdirSync(requestsDir).filter((f: string) => f.endsWith(".json"));
-      watcherLog(commsDir, `found ${files.length} files: [${files.join(", ")}]`);
-      for (const file of files) {
-        const requestId = file.replace(".json", "");
-        watcherLog(commsDir, `checking requestId=${requestId} inSet=${processedRequestIds.has(requestId)} setSize=${processedRequestIds.size} setContents=[${Array.from(processedRequestIds).join(",")}]`);
-        if (processedRequestIds.has(requestId)) continue;
-        processedRequestIds.add(requestId);
-        watcherLog(commsDir, `processing request ${requestId}`);
-        const requestFile = join(requestsDir, file);
-        try {
-          const raw = readFileSync(requestFile, "utf-8");
-          const request: InputRequest = JSON.parse(raw);
-          activeRequests.set(requestId, request);
-          await handleInputRequest(request, cwd, responsesDir, ctx);
-          watcherLog(commsDir, `handled request ${requestId}`);
-          try { unlinkSync(join(requestsDir, file)); } catch {}
-        } catch (err) {
-          watcherLog(commsDir, `error parsing request ${requestId}: ${err}`);
-          writeDeclinedResponse(responsesDir, requestId, "system", "Malformed request");
+    if (dirExists) {
+      try {
+        const files = readdirSync(requestsDir).filter((f: string) => f.endsWith(".json"));
+        watcherLog(commsDir, `found ${files.length} files: [${files.join(", ")}]`);
+        for (const file of files) {
+          const requestId = file.replace(".json", "");
+          watcherLog(commsDir, `checking requestId=${requestId} inMap=${processedRequestIds.has(requestId)} mapSize=${processedRequestIds.size}`);
+          if (processedRequestIds.has(requestId)) continue;
+          watcherLog(commsDir, `processing request ${requestId}`);
+          const requestFile = join(requestsDir, file);
+          try {
+            const raw = readFileSync(requestFile, "utf-8");
+            const request: InputRequest = JSON.parse(raw);
+            activeRequests.set(requestId, request);
+            await handleInputRequest(request, cwd, responsesDir, ctx);
+            watcherLog(commsDir, `handled request ${requestId}`);
+            processedRequestIds.set(requestId, Date.now());
+            try { unlinkSync(join(requestsDir, file)); } catch {}
+          } catch (err) {
+            watcherLog(commsDir, `error parsing request ${requestId}: ${err}`);
+            processedRequestIds.set(requestId, Date.now());
+            writeDeclinedResponse(responsesDir, requestId, "system", "Malformed request");
+          }
         }
+      } catch (err) {
+        watcherLog(commsDir, `error in watcher outer try: ${err}`);
       }
-    } catch (err) {
-      watcherLog(commsDir, `error in watcher outer try: ${err}`);
     }
-  }, REQUEST_WATCHER_INTERVAL_MS);
+
+    if (watcherRunning) setTimeout(tick, REQUEST_WATCHER_INTERVAL_MS);
+  }
+
+  setTimeout(tick, REQUEST_WATCHER_INTERVAL_MS);
 }
 
 function stopRequestWatcher(): void {
-  if (requestWatcherInterval) {
-    clearInterval(requestWatcherInterval);
-    requestWatcherInterval = null;
-  }
+  watcherRunning = false;
   processedRequestIds.clear();
   activeRequests.clear();
-  completedRequests.clear();
   agentMessageCounts.clear();
+  inFlightTargets.clear();
 }
 async function handleInputRequest(request: InputRequest, cwd: string, responsesDir: string, ctx: any): Promise<void> {
   const commsDir = getCommsDir(cwd);
@@ -225,24 +309,51 @@ async function handleInputRequest(request: InputRequest, cwd: string, responsesD
     activeRequests.delete(request.id);
     return;
   }
+  if (inFlightTargets.has(targetKey)) {
+    writeDeclinedResponse(responsesDir, request.id, request.to_agent,
+      `${request.to_agent} is handling another request. Try again shortly.`);
+    activeRequests.delete(request.id);
+    return;
+  }
+  inFlightTargets.set(targetKey, request.id);
   const formattedTask = `A teammate (${request.from_agent}) is asking for your input:\n\n**Question:** ${request.question}${request.context ? `\n\n**Context:** ${request.context}` : ""}\n\nPlease provide a helpful, focused response.`;
   try {
     const agentSessionFile = join(cwd, ".pi", "agent-sessions", `${targetKey}.json`);
     const commsDir = getCommsDir(cwd);
+
+    // Build full context prompt (same as dispatchAgent)
+    const teamRoster = Array.from(agentStates.values())
+      .map(s => `- ${s.def.name}: ${s.def.description}`)
+      .join("\n");
+    const hTeamRosterBlock = `## Your Team\nYou are ${targetState.def.name} on a team with:\n${teamRoster}\n\n## Team Communication\nYou have two tools for team communication:\n- post_to_channel: Share discoveries, decisions, warnings, or disagreements with the team\n- request_input: Ask a specific teammate a question and wait for their response`;
+    const hAllMessages = readChannelMessages(cwd);
+    const hCurated = curateMessagesForAgent(hAllMessages, targetKey);
+    const hCuratedMessagesBlock = formatCuratedMessages(hCurated);
+    const hContextContent = readContextFile(activeTeamDir);
+    const hContextBlock = formatContextBlock(hContextContent);
+    const hExpertiseContent = readExpertiseFile(activeTeamDir, targetKey);
+    const hExpertiseBlock = formatExpertiseBlock(hExpertiseContent);
+    const hSessionNotes = readSessionNotes(activeTeamDir, targetKey);
+    const hSessionNotesBlock = formatSessionNotesBlock(hSessionNotes);
+
+    const hCombinedPrompt = `${hContextBlock}${hTeamRosterBlock}${hCuratedMessagesBlock}${hExpertiseBlock}\n\n${targetState.def.systemPrompt}${hSessionNotesBlock}`;
+    const reqPromptFile = join(tmpdir(), `pi-team-req-prompt-${targetKey}-${randomUUID()}.txt`);
+    writeFileSync(reqPromptFile, hCombinedPrompt, "utf-8");
+
     const args = [
       "--mode", "json", "-p",
       "--no-extensions", "-e", resolve(homedir(), ".pi/agent/extensions/team-comms.ts"),
       "--model", targetState.def.model || "anthropic/claude-sonnet-4-20250514",
       "--tools", targetState.def.tools,
       "--thinking", "off",
-      "--append-system-prompt", targetState.def.systemPrompt,
+      "--append-system-prompt", reqPromptFile,
       "--session", agentSessionFile,
     ];
     if (existsSync(agentSessionFile)) args.push("-c");
     args.push(formattedTask);
     const proc = spawn("pi", args, {
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, PI_AGENT_NAME: targetKey, PI_TEAM_COMMS_DIR: commsDir, PI_COMMS_DEPTH: "1" },
+      env: { ...process.env, PI_AGENT_NAME: targetKey, PI_TEAM_COMMS_DIR: commsDir, PI_TEAM_DIR: activeTeamDir, PI_COMMS_DEPTH: "1" },
     });
     let output = "";
     let hBuffer = "";
@@ -265,18 +376,26 @@ async function handleInputRequest(request: InputRequest, cwd: string, responsesD
       }
     });
     await new Promise<void>((res) => {
-      proc.on("close", () => {
+      proc.on("close", (code) => {
+        inFlightTargets.delete(targetKey);
+        try { unlinkSync(reqPromptFile); } catch {}
+        const failed = code !== 0 || !output.trim();
         const response: InputResponse = {
           request_id: request.id, timestamp: new Date().toISOString(),
-          from_agent: targetKey, content: output || "No response generated.", status: "answered",
+          from_agent: targetKey,
+          content: failed ? `Agent error (exit code ${code ?? "unknown"})` : output,
+          status: failed ? "declined" : "answered",
         };
         writeFileSync(join(responsesDir, `${request.id}.json`), JSON.stringify(response, null, 2), "utf-8");
         activeRequests.delete(request.id);
-        completedRequests.set(request.id, response);
         res();
+      });
+      proc.on("error", () => {
+        inFlightTargets.delete(targetKey);
       });
     });
   } catch (err) {
+    inFlightTargets.delete(targetKey);
     writeDeclinedResponse(responsesDir, request.id, request.to_agent, `Error dispatching ${request.to_agent}: ${err}`);
     activeRequests.delete(request.id);
   }
@@ -347,6 +466,106 @@ function parseTeamsYaml(raw: string): Record<string, string[]> {
 		}
 	}
 	return teams;
+}
+
+function parseTeamYaml(teamDir: string): TeamMeta | null {
+	try {
+		const teamYamlPath = join(teamDir, "team.yaml");
+		if (!existsSync(teamYamlPath)) return null;
+
+		const raw = readFileSync(teamYamlPath, "utf-8");
+		let name = basename(teamDir);
+		let agents: string[] = [];
+		let inAgentsBlock = false;
+
+		for (const line of raw.split("\n")) {
+			const trimmed = line.trim();
+			if (trimmed.startsWith("#") || trimmed.length === 0) continue;
+			if (trimmed.startsWith("name:")) {
+				name = trimmed.slice(5).trim();
+				inAgentsBlock = false;
+				continue;
+			}
+			if (trimmed.startsWith("agents:")) {
+				const agentStr = trimmed.slice(7).trim();
+				if (agentStr.startsWith("[")) {
+					agents = agentStr
+						.replace(/[\[\]]/g, "")
+						.split(",")
+						.map((a) => a.trim())
+						.filter(Boolean);
+					inAgentsBlock = false;
+				} else {
+					inAgentsBlock = true;
+				}
+				continue;
+			}
+			if (inAgentsBlock) {
+				const itemMatch = line.match(/^\s+-\s+(.+)$/);
+				if (itemMatch) {
+					agents.push(itemMatch[1].trim());
+					continue;
+				}
+				if (!line.startsWith(" ")) {
+					inAgentsBlock = false;
+				}
+			}
+		}
+
+		if (!name || agents.length === 0) return null;
+
+		let dispatcher = "";
+		const dispatcherPath = join(teamDir, "dispatcher.md");
+		if (existsSync(dispatcherPath)) {
+			dispatcher = readFileSync(dispatcherPath, "utf-8");
+			if (dispatcher.startsWith("---")) {
+				const endIdx = dispatcher.indexOf("---", 3);
+				if (endIdx !== -1) {
+					dispatcher = dispatcher.slice(endIdx + 3).trim();
+				}
+			}
+		}
+
+		let brief = "";
+		const briefPath = join(teamDir, "brief.md");
+		if (existsSync(briefPath)) {
+			brief = readFileSync(briefPath, "utf-8");
+		}
+
+		return { name, agents, dispatcher, brief, source: "folder", dir: teamDir };
+	} catch {
+		return null;
+	}
+}
+
+function scanTeamFolders(searchPaths: string[]): Record<string, TeamMeta> {
+	const discovered: Record<string, TeamMeta> = {};
+
+	for (const basePath of searchPaths) {
+		const teamsDir = join(basePath, "teams");
+		if (!existsSync(teamsDir)) continue;
+
+		let entries: ReturnType<typeof readdirSync> = [];
+		try {
+			entries = readdirSync(teamsDir, { withFileTypes: true });
+		} catch {
+			continue;
+		}
+
+		const sorted = entries
+			.filter((entry: any) => entry.isDirectory())
+			.sort((a: any, b: any) => a.name.localeCompare(b.name));
+
+		for (const entry of sorted as any[]) {
+			const teamDir = join(teamsDir, entry.name);
+			const meta = parseTeamYaml(teamDir);
+			if (meta && !discovered[meta.name]) {
+				discovered[meta.name] = meta;
+			}
+		}
+	}
+
+	return discovered;
 }
 
 // ── Frontmatter Parser ───────────────────────────
@@ -448,6 +667,7 @@ export default function (pi: ExtensionAPI) {
 	agentStates.clear();
 	let allAgentDefs: AgentDef[] = [];
 	let teams: Record<string, string[]> = {};
+	let teamMeta: Record<string, TeamMeta> = {};
 	let activeTeamName = "";
 	const _savedPrefs = loadPreferences();
 	let gridCols = 2;
@@ -468,18 +688,41 @@ export default function (pi: ExtensionAPI) {
 		// Load all agent definitions
 		allAgentDefs = scanAgentDirs(cwd);
 
-		// Load teams — check cwd-relative path first, then global Pi agent dir
+		// Discover folder-based teams first (same path basis pattern as scanAgentDirs)
+		const folderSearchPaths = [
+			join(cwd, "agents"),
+			join(cwd, "agent", "agents"),
+			join(cwd, ".claude", "agents"),
+			join(cwd, ".pi", "agents"),
+			join(homedir(), ".pi", "agent", "agents"),
+		];
+		teamMeta = scanTeamFolders(folderSearchPaths);
+		teams = {};
+		for (const name of Object.keys(teamMeta)) {
+			teams[name] = teamMeta[name].agents;
+		}
+
+		// Fall back to teams.yaml for unmigrated teams
 		const teamsPath = existsSync(join(cwd, ".pi", "agents", "teams.yaml"))
 			? join(cwd, ".pi", "agents", "teams.yaml")
 			: join(homedir(), ".pi", "agent", "agents", "teams.yaml");
 		if (existsSync(teamsPath)) {
 			try {
-				teams = parseTeamsYaml(readFileSync(teamsPath, "utf-8"));
-			} catch {
-				teams = {};
-			}
-		} else {
-			teams = {};
+				const yamlTeams = parseTeamsYaml(readFileSync(teamsPath, "utf-8"));
+				for (const [name, members] of Object.entries(yamlTeams)) {
+					if (!teams[name]) {
+						teams[name] = members;
+						teamMeta[name] = {
+							name,
+							agents: members,
+							dispatcher: "",
+							brief: "",
+							source: "yaml",
+							dir: "",
+						};
+					}
+				}
+			} catch {}
 		}
 
 		// If no teams defined, create a default "all" team
@@ -493,6 +736,7 @@ export default function (pi: ExtensionAPI) {
 
 	function activateTeam(teamName: string) {
 		activeTeamName = teamName;
+		activeTeamDir = teamMeta[teamName]?.dir || "";
 		const members = teams[teamName] || [];
 		const defsByName = new Map(allAgentDefs.map(d => [d.name.toLowerCase(), d]));
 
@@ -553,6 +797,17 @@ export default function (pi: ExtensionAPI) {
 		const commsParts: string[] = [];
 		if (msgCount > 0) commsParts.push(`💬${msgCount}`);
 		if (hasPending) commsParts.push("⏳");
+		if (activeTeamDir) {
+			const slug = state.def.name.toLowerCase().replace(/[^a-z0-9-]/g, "-");
+			if (existsSync(join(activeTeamDir, "expertise", `${slug}.md`))) commsParts.push("📚");
+			const notesPath = join(activeTeamDir, "session-notes", `${slug}.jsonl`);
+			if (existsSync(notesPath)) {
+				try {
+					const noteCount = readFileSync(notesPath, "utf-8").split("\n").filter(l => l.trim()).length;
+					if (noteCount > 0) commsParts.push(`📝${noteCount}`);
+				} catch {}
+			}
+		}
 		const commsStr = commsParts.length > 0 ? `  ${commsParts.join(" ")}` : "";
 		const statusLine = theme.fg(statusColor, statusStr + timeStr + commsStr);
 		const statusVisible = statusStr.length + timeStr.length + commsStr.length;
@@ -613,6 +868,17 @@ export default function (pi: ExtensionAPI) {
 
 		if (msgCount > 0) parts.push(`💬${msgCount}`);
 		if (hasPending) parts.push("⏳");
+		if (activeTeamDir) {
+			const slug = state.def.name.toLowerCase().replace(/[^a-z0-9-]/g, "-");
+			if (existsSync(join(activeTeamDir, "expertise", `${slug}.md`))) parts.push("📚");
+			const notesPath = join(activeTeamDir, "session-notes", `${slug}.jsonl`);
+			if (existsSync(notesPath)) {
+				try {
+					const noteCount = readFileSync(notesPath, "utf-8").split("\n").filter(l => l.trim()).length;
+					if (noteCount > 0) parts.push(`📝${noteCount}`);
+				} catch {}
+			}
+		}
 
 		// Runs (only if agent has been dispatched)
 		if (state.runCount > 0) parts.push(`#${state.runCount}`);
@@ -807,7 +1073,14 @@ export default function (pi: ExtensionAPI) {
 		const allMessages = readChannelMessages(ctx.cwd);
 		const curated = curateMessagesForAgent(allMessages, agentKey);
 		const curatedMessagesBlock = formatCuratedMessages(curated);
-		const combinedPrompt = `${teamRosterBlock}${curatedMessagesBlock}\n\n${state.def.systemPrompt}`;
+		const contextContent = readContextFile(activeTeamDir);
+		const contextBlock = formatContextBlock(contextContent);
+		const expertiseContent = readExpertiseFile(activeTeamDir, agentKey);
+		const expertiseBlock = formatExpertiseBlock(expertiseContent);
+		const sessionNotes = readSessionNotes(activeTeamDir, agentKey);
+		const sessionNotesBlock = formatSessionNotesBlock(sessionNotes);
+
+		const combinedPrompt = `${contextBlock}${teamRosterBlock}${curatedMessagesBlock}${expertiseBlock}\n\n${state.def.systemPrompt}${sessionNotesBlock}`;
 		const promptFile = join(tmpdir(), `pi-team-comms-prompt-${agentKey}-${randomUUID()}.txt`);
 		writeFileSync(promptFile, combinedPrompt, "utf-8");
 
@@ -838,6 +1111,7 @@ export default function (pi: ExtensionAPI) {
 					...process.env,
 					PI_AGENT_NAME: agentKey,
 					PI_TEAM_COMMS_DIR: resolve(ctx.cwd, COMMS_DIR_NAME),
+					PI_TEAM_DIR: activeTeamDir,
 				},
 			});
 
@@ -1040,7 +1314,7 @@ export default function (pi: ExtensionAPI) {
 			widgetCtx = ctx;
 			const teamNames = Object.keys(teams);
 			if (teamNames.length === 0) {
-				ctx.ui.notify("No teams defined in .pi/agents/teams.yaml", "warning");
+				ctx.ui.notify("No teams defined — add team folders to agents/teams/ or define in teams.yaml", "warning");
 				return;
 			}
 
@@ -1191,13 +1465,23 @@ export default function (pi: ExtensionAPI) {
 	pi.on("before_agent_start", async (_event, _ctx) => {
 		// Build dynamic agent catalog from active team only
 		const agentCatalog = Array.from(agentStates.values())
-			.map(s => `### ${displayName(s.def.name)}\n**Dispatch as:** \`${s.def.name}\`\n${s.def.description}\n**Tools:** ${s.def.tools}`)
+			.map(s => {
+				const slug = s.def.name.toLowerCase().replace(/[^a-z0-9-]/g, "-");
+				const hasExpertise = activeTeamDir && existsSync(join(activeTeamDir, "expertise", `${slug}.md`));
+				const expertiseNote = hasExpertise ? "\n**Has expertise file:** yes" : "";
+				return `### ${displayName(s.def.name)}\n**Dispatch as:** \`${s.def.name}\`\n${s.def.description}\n**Tools:** ${s.def.tools}${expertiseNote}`;
+			})
 			.join("\n\n");
 
 		const teamMembers = Array.from(agentStates.values()).map(s => displayName(s.def.name)).join(", ");
 
-		const guideSection = dispatcherGuide
-			? `\n## Dispatcher Guide\n\n${dispatcherGuide}\n`
+		const activeMeta = teamMeta[activeTeamName];
+		const activeDispatcher = activeMeta?.dispatcher?.trim() ? activeMeta.dispatcher : dispatcherGuide;
+		const briefSection = activeMeta?.brief?.trim()
+			? `\n## Team Brief\n\n${activeMeta.brief.trim()}\n`
+			: "";
+		const guideSection = activeDispatcher?.trim()
+			? `\n## Dispatcher Guide\n\n${activeDispatcher.trim()}\n`
 			: "";
 
 		return {
@@ -1223,7 +1507,7 @@ You can ONLY dispatch to agents listed below. Do not attempt to dispatch to agen
 - You can chain agents: use scout to explore, then builder to implement
 - You can dispatch the same agent multiple times with different tasks
 - Keep tasks focused — one clear objective per dispatch
-${guideSection}
+${briefSection}${guideSection}
 ## Agents
 
 ${agentCatalog}`,
@@ -1288,9 +1572,15 @@ ${agentCatalog}`,
 
 		_ctx.ui.setStatus("agent-team", `Team: ${activeTeamName} (${agentStates.size})`);
 		const members = Array.from(agentStates.values()).map(s => displayName(s.def.name)).join(", ");
+		const folderTeams = Object.keys(teamMeta).filter((n) => teamMeta[n]?.source === "folder");
+		const yamlTeams = Object.keys(teams).filter((n) => teamMeta[n]?.source === "yaml");
+		const sourceInfo = [
+			folderTeams.length > 0 ? `Folder teams: ${folderTeams.join(", ")}` : "",
+			yamlTeams.length > 0 ? `YAML teams: ${yamlTeams.join(", ")}` : "",
+		].filter(Boolean).join(" | ");
 		_ctx.ui.notify(
 			`Team: ${activeTeamName} (${members})\n` +
-			`Team sets loaded from: .pi/agents/teams.yaml\n\n` +
+			`Team sets loaded from: ${sourceInfo || "none"}\n\n` +
 			`/agents-team          Select a team\n` +
 			`/agents-list          List active agents and status\n` +
 			`/agents-grid <1-6|auto> Set grid column count\n` +

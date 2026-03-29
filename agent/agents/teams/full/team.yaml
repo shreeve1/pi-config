@@ -1,0 +1,12 @@
+# Full team — default, includes the complete pipeline plus security, docs, and investigation
+name: full
+agents:
+  - scout
+  - web-searcher
+  - planner
+  - builder
+  - reviewer
+  - tester
+  - documenter
+  - red-team
+  - investigator
