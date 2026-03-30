@@ -26,25 +26,33 @@ Read these references before generation choices:
    - `## CEO: {Name}`
    - `## Team Members` with `### {Member Name}` subsections
 4. Also extract team metadata from header lines (`# Team PRD: ...`, `**Domain:**`, etc.).
-5. If any required section is missing, stop and report exactly what is missing.
-6. Print a roster summary before writing files:
+5. Build canonical roster records (CEO + specialists) with: display name, role, model, tools, and Agent ID.
+6. Agent ID rules (canonical identity):
+   - Preferred source: `- **Agent ID:** ...` in each CEO/member block
+   - Required format: lowercase kebab-case, namespaced as `{team-slug}-{role-slug}`
+   - Backward-compatible fallback (legacy PRDs): if Agent ID is missing, derive `{team-slug}-{slug(member-name)}` and print a warning per derived ID
+   - Stop on duplicate Agent IDs within the roster
+   - Stop on collisions with existing agent frontmatter `name` values outside `~/.pi/agent/agents/{team-slug}/`
+7. If any required section is missing, stop and report exactly what is missing.
+8. Print a roster summary before writing files:
    - Team name
    - Domain
-   - CEO name
+   - CEO name + Agent ID
    - Specialist count
 
 Parsing notes:
 - Treat headings as authoritative boundaries.
 - Preserve section text faithfully when copying shared context into team files.
 - Prefer explicit member names from `###` headings under `## Team Members`.
+- Use Agent ID as canonical identity everywhere after parsing (file names, frontmatter `name`, expertise files, `team.yaml`).
 
 ---
 
 ## Phase 2 — Scaffold or Resume
 
-Compute slug values using lowercase hyphenation (`name.toLowerCase().replace(/[^a-z0-9-]/g, "-")`):
-- `team-slug` from team name
-- `agent-slug` from each member name (including CEO)
+Compute IDs:
+- `team-slug` from team name via lowercase hyphenation (`name.toLowerCase().replace(/[^a-z0-9-]/g, "-")`)
+- `agent-id` from parsed Agent ID field (or validated legacy fallback from Phase 1)
 
 Target paths:
 - Team folder: `~/.pi/agent/agents/teams/{team-slug}/`
@@ -83,14 +91,14 @@ If scaffold already exists, do not overwrite unchanged files unless missing.
 1. Read member roster from PRD (CEO + specialists).
 2. Scan `~/.pi/agent/agents/{team-slug}/` for built `.md` files.
 3. Mark status per member:
-   - Built ✓ if corresponding `{agent-slug}.md` exists
+   - Built ✓ if corresponding `{agent-id}.md` exists
    - Pending otherwise
 4. Show status table:
 
 ```text
-| Member | Role | Status |
-|---|---|---|
-| ... | ... | Built ✓ / Pending |
+| Member | Agent ID | Role | Status |
+|---|---|---|---|
+| ... | ... | ... | Built ✓ / Pending |
 ```
 
 Selection rules:
@@ -105,12 +113,12 @@ Selection rules:
 Create two files for the selected member.
 
 ### File A: Agent definition
-Path: `~/.pi/agent/agents/{team-slug}/{agent-slug}.md`
+Path: `~/.pi/agent/agents/{team-slug}/{agent-id}.md`
 
 Required frontmatter (all 4 fields explicitly):
 ```yaml
 ---
-name: {agent-slug}
+name: {agent-id}
 description: {one-line role description}
 model: {model from PRD — use the tier assigned during create-team}
 tools: {from PRD Recommended Tools}
@@ -148,7 +156,7 @@ Specialist-specific additions:
 - Tool strategy: how to use tools to produce persuasive evidence
 
 ### File B: Expertise scratchpad
-Path: `~/.pi/agent/agents/teams/{team-slug}/expertise/{agent-slug}.md`
+Path: `~/.pi/agent/agents/teams/{team-slug}/expertise/{agent-id}.md`
 
 Template:
 ```markdown
@@ -179,11 +187,11 @@ Leave `Session Notes` empty for accumulation during runtime.
 ## Phase 5 — Update team.yaml + Report
 
 1. Read `~/.pi/agent/agents/teams/{team-slug}/team.yaml`.
-2. Add `{agent-slug}` to `agents:` list if not already present (idempotent).
+2. Add `{agent-id}` to `agents:` list if not already present (idempotent).
 3. Keep existing entries and order; CEO should appear first if building from scratch.
 4. Report:
    - Created/updated file paths
-   - Built member name + slug
+   - Built member name + Agent ID
    - Updated status table
    - Remaining pending members
    - Reminder to run `/skill:build-team` again for next member
@@ -194,7 +202,7 @@ Leave `Session Notes` empty for accumulation during runtime.
 
 - Build exactly one member per invocation.
 - Use filesystem as source of truth (no sidecar progress files).
-- Agent files must be lowercase-hyphenated slugs.
+- Agent files must be named by canonical Agent ID (`{team-slug}-{role-slug}`).
 - Agent files live in `~/.pi/agent/agents/{team-slug}/`.
 - Team files live in `~/.pi/agent/agents/teams/{team-slug}/`.
 - `context.md` is mandatory and must contain shared context verbatim.
@@ -204,7 +212,7 @@ Leave `Session Notes` empty for accumulation during runtime.
 Deferred (do not implement in v1):
 - Web research enrichment
 - Dry-run mode
-- Build validation automation beyond basic file checks
+- Build validation automation beyond required ID parsing/fallback/collision checks
 
 ---
 

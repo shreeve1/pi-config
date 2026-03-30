@@ -14,7 +14,9 @@ Use this skill when the user wants to design a domain-specific advisory team and
 
 ## Variables
 
-- `TEAM_NAME` — kebab-case team name
+- `TEAM_NAME` — human-readable team name
+- `TEAM_SLUG` — lowercase kebab-case slug derived from team name
+- `AGENT_ID_PATTERN` — `{team-slug}-{role-slug}` (lowercase kebab-case)
 - `OUTPUT_DIR` — `artifacts/specs/`
 - `DRAFT_FILE` — `artifacts/specs/team-prd-{team-name}-draft.md`
 - `CURRENT_DATE` — today in `YYYY-MM-DD`
@@ -88,10 +90,11 @@ Validate before presenting:
 - every tension has at least one Red and one Blue voice
 - no redundant member pair that argues identically
 - size is within CEO + 3-7 specialists
+- every member (including CEO) has a unique **Agent ID** matching `{team-slug}-{role-slug}`
 
-Present roster and team name proposal. Ask for edits (missing, redundant, renames, remaps). Finalize only after user approval.
+Present roster, team name proposal, and Agent IDs. Ask for edits (missing, redundant, renames, remaps). Finalize only after user approval.
 
-Persist roster + team name to `DRAFT_FILE`.
+Persist roster + team name + Agent IDs to `DRAFT_FILE`.
 
 ---
 
@@ -120,19 +123,20 @@ Design the CEO first, then define shared context used by all members.
 
 Write 2-4 paragraphs of baseline context all agents share (facts, constraints, operating realities, known metrics patterns).
 
-### CEO Specification (10 required components)
+### CEO Specification (11 required components)
 
-Generate all ten:
+Generate all eleven:
 1. Name
-2. Narrative Description (conceptual attractor)
-3. PERSPECTIVE Block
-4. Behavioral Traits (BFI-2 spectrum prose)
-5. Role (White arbiter)
-6. Orchestration Mandate
-7. Decision-Making Style
-8. Handling Disagreement
-9. Domain Expertise
-10. Recommended Tools (must include `dispatch_agent`)
+2. Agent ID (`{team-slug}-{role-slug}`)
+3. Narrative Description (conceptual attractor)
+4. PERSPECTIVE Block
+5. Behavioral Traits (BFI-2 spectrum prose)
+6. Role (White arbiter)
+7. Orchestration Mandate
+8. Decision-Making Style
+9. Handling Disagreement
+10. Domain Expertise
+11. Recommended Tools (must include `dispatch_agent`)
 
 Also include **Constraint Policy**: when to stop debate, required evidence threshold for final call, and what to do with unresolved tensions.
 
@@ -148,14 +152,15 @@ Design specialists one at a time in approved order. After each member, run a dif
 
 For each member include all required components:
 1. Name
-2. Narrative
-3. PERSPECTIVE Block
-4. Behavioral Traits (BFI-2 spectrum prose)
-5. Team Role (Red/Blue + what they challenge/defend)
-6. Domain Expertise (3+ specific seed areas/frameworks)
-7. Cognitive Biases (self-aware tendencies)
-8. Recommended Tools
-9. Relationships (directional, topic-specific)
+2. Agent ID (`{team-slug}-{role-slug}`)
+3. Narrative
+4. PERSPECTIVE Block
+5. Behavioral Traits (BFI-2 spectrum prose)
+6. Team Role (Red/Blue + what they challenge/defend)
+7. Domain Expertise (3+ specific seed areas/frameworks)
+8. Cognitive Biases (self-aware tendencies)
+9. Recommended Tools
+10. Relationships (directional, topic-specific)
 
 Style guidance:
 - narrative is character-first, not role boilerplate
@@ -210,6 +215,7 @@ Use this build-team-compatible structure exactly:
 ## CEO: {CEO Name}
 ### Name
 {CEO name}
+- **Agent ID:** `{team-slug}-{role-slug}`
 - **Model:** `{model-id from tiering}`
 ### Role
 White team arbiter and orchestrator
@@ -234,6 +240,7 @@ See: **## Shared Domain Context**
 
 ## Team Members
 ### {Member Name}
+- **Agent ID:** `{team-slug}-{role-slug}`
 - **Model:** `{model-id from tiering}`
 ### Narrative
 {conceptual attractor prose}
@@ -262,6 +269,11 @@ See: **## Shared Domain Context**
 ### Downstream Dependencies
 {Known follow-on work}
 ```
+
+Before final save, validate:
+- every Agent ID is present for CEO and all specialists
+- every Agent ID is unique (no collisions)
+- every Agent ID is lowercase kebab-case and namespaced as `{team-slug}-{role-slug}`
 
 After save:
 1. Ask if user wants revisions to specific member(s)
@@ -298,7 +310,7 @@ Size: CEO + {N} specialists
 Tensions: {count}
 
 Members:
-- {Name} — {Role}
+- {Name} ({Agent ID}) — {Role}
 - ...
 
 Next Step: /skill:build-team
