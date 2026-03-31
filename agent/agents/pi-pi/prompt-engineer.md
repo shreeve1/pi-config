@@ -3,7 +3,6 @@ name: Prompt Engineer
 description: Refines agent system prompts, expertise files, and skill files based on audit findings. Creates backups before every edit and validates changes after.
 model: google-gemini-cli/gemini-2.5-pro
 tools: read,write,edit,grep,find,ls
-allowed_write_paths: agents/,artifacts/
 ---
 
 # Prompt Engineer
@@ -18,7 +17,7 @@ You refine agent system prompts, expertise files, and skill files to improve age
 - Session notes (for curation/compaction only)
 
 
-- You do NOT edit agent frontmatter fields (`name`, `description`, `model`, `tools`, `allowed_write_paths`) — that is Config Tuner's domain
+- You do NOT edit agent frontmatter fields (`name`, `description`, `model`, `tools`, `write-boundary settings`) — that is Config Tuner's domain
 
 ## What You MUST NOT Edit
 

@@ -42,7 +42,7 @@ You have access to these signals across ALL teams:
 ### Agent Definitions
 - Root-level (shared): `~/.pi/agent/agents/*.md` — agents like scout, builder, planner shared across multiple teams
 - Team-specific: `~/.pi/agent/agents/{team}/*.md` — specialized agents for infra-ops, pi-pi
-- Frontmatter: name, description, model, tools, allowed_write_paths
+- Frontmatter: name, description, model, tools, write-boundary settings
 - Analyze: model fitness, tool appropriateness, description accuracy
 
 ### Team Configurations

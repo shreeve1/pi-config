@@ -85,7 +85,7 @@ agent-auditor → prompt-engineer
 agent-auditor → config-tuner
 ```
 1. **Agent Auditor** — analyzes domain violation patterns
-2. **Config Tuner** — adjusts allowed_write_paths and boundaries
+2. **Config Tuner** — adjusts write-boundary settings and boundaries
 
 ### Session Note Curation
 ```
@@ -121,7 +121,7 @@ Dispatch the relevant expert directly for framework questions.
 ### Low-risk changes (can proceed with audit backing):
 - Pruning stale session notes
 - Adding to expertise files
-- Expanding allowed_write_paths (based on violation data)
+- Expanding write-boundary settings (based on violation data)
 - Adding new skill files
 
 ## After All Dispatches Complete

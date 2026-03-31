@@ -29,14 +29,14 @@ Agent files have YAML frontmatter with:
 - `description:`
 - `model:` — specific model assignment (opus, sonnet, codex, etc.)
 - `tools:` — comma-separated tool names (read, write, bash, grep, find, ls)
-- `allowed_write_paths:` — (optional) domain locking constraints
+- write-boundary settings — (optional) domain locking constraints
 
 Full team shows write path patterns:
 - `builder`: src/, lib/, tests/, scripts/, artifacts/plans/
 - `documenter`: artifacts/docs/, README.md, CHANGELOG.md
 - `planner`: artifacts/plans/, artifacts/specs/
 - `tester`: src/, tests/, .pi/test-manifest.json
-- Read-only agents: scout, web-searcher, investigator (no allowed_write_paths)
+- Read-only agents: scout, web-searcher, investigator (no write-boundary settings)
 
 ### Team Infrastructure Completeness Patterns
 Four teams with folder-based infrastructure, three teams fallback-only:
@@ -79,7 +79,7 @@ Tools (1-2) universal, (3-6) infrastructure-dependent. All require folder-based 
 - Static vs. dynamic divergence — file structure doesn't always match runtime behavior
 - Completeness vs. relevance trade-off — knowing when to stop mapping
 - **Artifact-driven coordination** — all team knowledge flows through persistent artifacts (plans/, docs/, specs/), not direct agent messaging
-- **Domain locking as governance** — allowed_write_paths prevents accidental cross-domain contamination
+- **Domain locking as governance** — write-boundary settings prevent accidental cross-domain contamination
 - **Infrastructure asymmetry** — Teams differ significantly: full team has active learning, infra-ops ready but empty, pi-pi blocked, fallback teams have zero infrastructure
 - **Session notes as measurement** — Learning capture is the signal of team maturity and effectiveness. Empty directories = readiness, populated files = active teams
 
@@ -95,7 +95,7 @@ Tools (1-2) universal, (3-6) infrastructure-dependent. All require folder-based 
    
    Missing ANY of these breaks the learning workflow. Pi-pi team missing session-notes/ = cannot use add_session_note().
 
-3. **Domain locking isn't inherited** — Write paths must be explicitly declared per-agent. No defaults or inheritance. Agent with `write` tool but no `allowed_write_paths` can write anywhere.
+3. **Domain locking isn't inherited** — Write paths must be explicitly declared per-agent. No defaults or inheritance. Agent with `write` tool but no write-boundary settings can write anywhere.
 
 4. **Expertise files are structural templates** — The .md files provide structure but are activated by:
    - Session-notes directory existing (REQUIRED)
@@ -116,7 +116,7 @@ Tools (1-2) universal, (3-6) infrastructure-dependent. All require folder-based 
 
 ## Session Notes
 
-- **2026-03-31 (1):** Infra-ops Team Feature Parity Audit complete. Found three gaps: (1) missing agent-skills/ directory blocks mental-model skill access, (2) missing session-notes/ directory blocks expertise persistence, (3) zero allowed_write_paths constraints on 3 write-capable agents creates unconstrained write risk. Documented in artifacts/docs/development/ with quick reference and full analysis. Key learnings: team-specific skill discovery mechanism unverified (Pi docs show global-only discovery), domain locking pattern is explicit per-agent (no inheritance), feature parity requires all 4 components together (definitions, expertise, session-notes, skills).
+- **2026-03-31 (1):** Infra-ops Team Feature Parity Audit complete. Found three gaps: (1) missing agent-skills/ directory blocks mental-model skill access, (2) missing session-notes/ directory blocks expertise persistence, (3) zero write-boundary constraints on 3 write-capable agents creates unconstrained write risk. Documented in artifacts/docs/development/ with quick reference and full analysis. Key learnings: team-specific skill discovery mechanism unverified (Pi docs show global-only discovery), domain locking pattern is explicit per-agent (no inheritance), feature parity requires all 4 components together (definitions, expertise, session-notes, skills).
 
 - **2026-03-31 (2):** CRITICAL META-IMPROVEMENT DISCOVERY — Infrastructure audit across all 6 teams reveals meta-improvement agents can ONLY work on 1 team fully, 1 team partially: (1) full team = ✅ READY (all infrastructure + active session notes), (2) infra-ops = ⚠️ PARTIAL (infrastructure complete but session-notes/ empty, ready to capture), (3) pi-pi = ❌ NOT READY (session-notes/ directory missing, tools fail), (4-6) info/frontend/qa = ❌ NOT READY (fallback teams, zero infrastructure). Quick fix: mkdir -p ~/.pi/agent/agents/teams/pi-pi/session-notes. Fallback teams need 20 min migration each. Scoping meta-improvement to full + infra-ops teams only. Domain violations log shows all violations as "team"="unknown" (no team attribution yet).
 

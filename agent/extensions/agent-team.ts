@@ -411,7 +411,7 @@ async function handleInputRequest(request: InputRequest, cwd: string, responsesD
     args.push(formattedTask);
     const proc = spawn("pi", args, {
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, PI_AGENT_NAME: targetKey, PI_TEAM_COMMS_DIR: commsDir, PI_TEAM_DIR: activeTeamDir, PI_COMMS_DEPTH: "1", PI_ALLOWED_WRITE_PATHS: targetState.def.allowedWritePaths || "", PI_TEAM_WRITE_MAP: JSON.stringify(buildTeamWriteMap(agentStates)) },
+      env: { ...process.env, PI_AGENT_NAME: targetKey, PI_TEAM_COMMS_DIR: commsDir, PI_TEAM_DIR: activeTeamDir, PI_COMMS_DEPTH: "1", PI_ALLOWED_WRITE_PATHS: targetState.def.allowedWritePaths || undefined, PI_TEAM_WRITE_MAP: JSON.stringify(buildTeamWriteMap(agentStates)) },
     });
     let output = "";
     let hBuffer = "";
@@ -1194,7 +1194,7 @@ export default function (pi: ExtensionAPI) {
 					PI_AGENT_NAME: agentKey,
 					PI_TEAM_COMMS_DIR: resolve(ctx.cwd, COMMS_DIR_NAME),
 					PI_TEAM_DIR: activeTeamDir,
-					PI_ALLOWED_WRITE_PATHS: state.def.allowedWritePaths || "",
+					PI_ALLOWED_WRITE_PATHS: state.def.allowedWritePaths || undefined,
 					PI_TEAM_WRITE_MAP: JSON.stringify(buildTeamWriteMap(agentStates)),
 				},
 			});
