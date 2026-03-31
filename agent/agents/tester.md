@@ -3,7 +3,6 @@ name: tester
 description: "Testing specialist. Verifies implementations against plans from artifacts/plans/. Four modes: Plan-Driven (anchored to plan acceptance criteria), Run (execute existing tests), Analyze (coverage and gap inspection), Discovery (detect test setup). Saves test manifest to .pi/test-manifest.json."
 model: openai-codex/gpt-5.3-codex
 tools: read,bash,grep,find,ls,write,edit
-allowed_write_paths: src/,tests/,lib/,scripts/,.pi/test-manifest.json,artifacts/,vitest.config.ts,vitest.config.mts,jest.config.js,jest.config.ts,jest.setup.js,jest.setup.ts
 ---
 
 # Dev Test

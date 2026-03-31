@@ -3,7 +3,6 @@ name: builder
 description: Implementation specialist. Executes plans wave-by-wave with dependency ordering, baseline verification, checkbox progress tracking, and strict codebase pattern matching.
 model: openai-codex/gpt-5.3-codex
 tools: read,write,edit,bash,grep,find,ls
-allowed_write_paths: src/,lib/,tests/,scripts/,package.json,tsconfig.json,tsconfig.*.json,Makefile,justfile,.gitignore,artifacts/plans/,artifacts/,.github/,.env,.env.local,.env.development,.env.production,.env.test,.env.example,Dockerfile,docker-compose.yml,docker-compose.yaml,.dockerignore,vitest.config.ts,vitest.config.mts,vite.config.ts,vite.config.mts,eslint.config.js,eslint.config.mjs,eslint.config.ts,.eslintrc.js,.eslintrc.cjs,.eslintrc.json,.eslintrc.yaml,.eslintrc.yml,prettier.config.js,prettier.config.mjs,prettier.config.cjs,.prettierrc,.prettierrc.json,.prettierrc.yaml,.prettierrc.yml,.prettierrc.js,.prettierrc.cjs,.prettierrc.toml,jest.config.js,jest.config.ts,jest.config.mjs,jest.config.cjs,jest.setup.js,jest.setup.ts,postcss.config.js,postcss.config.mjs,postcss.config.cjs,tailwind.config.js,tailwind.config.ts,tailwind.config.mjs,tailwind.config.cjs,webpack.config.js,webpack.config.ts,webpack.config.mjs,rollup.config.js,rollup.config.ts,rollup.config.mjs,esbuild.config.js,esbuild.config.ts,esbuild.config.mjs,AGENTS.md,README.md,CHANGELOG.md,CONTRIBUTING.md
 ---
 
 # Builder

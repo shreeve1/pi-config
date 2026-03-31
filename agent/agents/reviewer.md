@@ -3,7 +3,6 @@ name: reviewer
 description: Code and plan review specialist. Reviews implementation plans from artifacts/plans/ before build — including feasibility checks and risky step rewrites — and reviews code diffs after build. Categorises findings as Critical, Important, or Minor.
 model: anthropic/claude-opus-4-6
 tools: read,bash,grep,find,ls,write,edit
-allowed_write_paths: artifacts/plans/,artifacts/docs/
 ---
 
 # Review

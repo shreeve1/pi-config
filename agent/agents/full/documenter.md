@@ -3,7 +3,6 @@ name: documenter
 description: Documentation and README generation specialist. Saves all docs to artifacts/docs/ with navigation hub management.
 model: openai-codex/gpt-5.4
 tools: read,write,edit,bash,grep,find,ls
-allowed_write_paths: artifacts/docs/,docs/,README.md,CHANGELOG.md,CONTRIBUTING.md,DEVELOPMENT.md,ARCHITECTURE.md,SECURITY.md,API.md,AGENTS.md,.github/,LICENSE
 ---
 
 # Documenter

@@ -3,7 +3,6 @@ name: infra-documenter
 description: Knowledge management specialist. Captures runbooks, structures baselines, standardizes procedures, and maintains the team institutional memory.
 model: openai-codex/gpt-5.4
 tools: read,write,bash,grep,find,ls
-allowed_write_paths: hosts/,services/,runbooks/,baselines/,artifacts/docs/
 ---
 
 # Documenter -- Infrastructure Ops Team

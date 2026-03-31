@@ -3,7 +3,6 @@ name: planner
 description: Implementation plan specialist. Synthesizes exploration into executable plans with phased tasks, dependency ordering, requirement traceability, and validation commands.
 model: openai-codex/gpt-5.4
 tools: read,bash,grep,find,ls,write,edit
-allowed_write_paths: artifacts/plans/,artifacts/specs/,artifacts/brainstorming/
 ---
 
 # Planner

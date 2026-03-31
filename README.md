@@ -1,342 +1,345 @@
 # Pi Config
 
-Personal [pi](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent) configuration — skills, extensions, agents, themes, and prompts.
+Personal [Pi](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent) configuration — agent teams, skills, extensions, themes, and prompts.
 
-## Why Use Pi?
+---
 
-<img width="1429" height="339" alt="image" src="https://github.com/user-attachments/assets/e61a430e-dd20-43fa-a306-5618f4cb28ce" />
+## Why Pi?
 
-<img width="1202" height="1263" alt="image" src="https://github.com/user-attachments/assets/b0b10dc9-90c2-4942-b9cb-2d3973bb0d5d" />
+- **Open source (MIT)** — Read, modify, and version-control every part of the agent. Pin what works. No surprise behavior changes from upstream.
+- **~200 token system prompt** — Pi's core is radically minimal. Four tools by default. Everything else loads on demand — your context window is spent on work, not framework overhead.
+- **Extensible, not opinionated** — Add capabilities via TypeScript extensions, skills, and themes. Build exactly the agent you need.
+- **300+ models, any provider** — Anthropic, OpenAI, Google, Mistral, Groq, OpenRouter, Ollama, and more. Switch mid-conversation.
+- **Skills as workflows** — Multi-step workflows load only when triggered. No token cost when unused.
 
+### Pi vs. Claude Code
 
+| | Pi | Claude Code |
+|---|---|---|
+| **System prompt** | ~200 tokens | ~10,000+ tokens |
+| **Core tools** | 4 (read, write, edit, bash) | 8+ |
+| **Source** | Open source (MIT) | Closed source |
+| **Models** | 300+ across any provider | Anthropic-first |
+| **Token efficiency** | On-demand skill loading | Upfront context dump |
 
-[Pi](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent) is a minimal terminal coding agent that adapts to your workflows instead of forcing you into its own. Unlike other AI coding tools, pi is designed to be extended — not forked.
-
-- **Open source (MIT)** — Read, modify, and version control every part of the agent: the loop, the prompt, the tools. Pin what works. No surprise behavior changes from upstream updates.
-- **~200 token system prompt** — Pi's core is radically minimal. Four tools (`read`, `write`, `edit`, `bash`). Everything else loads on demand, not upfront — so your context window is spent on work, not framework overhead.
-- **Extensible, not opinionated** — Add capabilities through TypeScript extensions, skills, and themes. Build exactly the agent you need instead of working around decisions someone else made for you.
-- **300+ models, any provider** — Anthropic, OpenAI, Google, Mistral, Groq, OpenRouter, Ollama, and more. Switch mid-conversation. Pick the best model for the task, not the one your tool vendor prefers.
-- **Skills as workflows** — Skills are structured instructions that guide the agent through multi-step processes (brainstorming → planning → building → testing). They load only when triggered — no token cost when unused. This repo is a full skill library.
-
-### How Pi Differs from Claude Code
-
-Pi and Claude Code use the same models, but the community consistently highlights these real differences:
-
-**Radical minimalism** — Pi's system prompt is ~200 tokens. Claude Code's is ~10,000+. Pi ships 4 tools (`read`, `write`, `edit`, `bash`). Claude Code ships 8+. Less baked-in means less token overhead on every single turn, and more of your context window available for actual work.
-
-**You own the agent** — Pi is open source (MIT). Extensions, skills, themes, the agent loop itself — it's all TypeScript you can read, modify, and version control. Claude Code is closed source. When it changes behavior in an update, you adapt. With pi, you pin what works.
-
-**Model freedom** — Pi works with any provider: Anthropic, OpenAI, Google, Mistral, Groq, OpenRouter, local models via Ollama — 300+ models out of the box. Claude Code prioritizes Anthropic models. Pi lets you pick the best model for the task and switch mid-conversation.
-
-**Progressive disclosure over upfront loading** — Skills load their full content only when triggered. MCP servers and Claude Code's built-in tools dump thousands of tokens into context on every session whether you need them or not. Pi's approach: if you're not using it, it's not in context.
-
-**Token efficiency in practice** — Users who switched [report their token limits lasting 5-10x longer](https://www.reddit.com/r/ClaudeCode/comments/1r11egp/why_i_switched_from_claude_code_to_pi_the_agent/) for the same volume of work. The combination of a minimal system prompt, on-demand skill loading, and scoped subagents with isolated context means dramatically less waste.
-
-**No guardrails by default** — Claude Code has 5 confirmation modes and permission gates designed for broad accessibility. Pi trusts you're an engineer who knows what you're doing. You add exactly the safety controls you want via extensions — nothing more, nothing less.
-
-**Full observability** — Every tool call, every reasoning step, every file the agent reads is visible. No abstraction layers hiding what's happening. When something goes wrong, you see exactly why.
+---
 
 ## Installation
 
-### Quick Setup via AI Agent
-
-Install Pi: `npm install -g @mariozechner/pi-coding-agent`
-
-Paste this prompt into your already working cli/agent tool session and let the agent do the rest:
-
-```
-Clone https://github.com/shreeve1/pi-config.git into ~/.pi (back up existing first), run npm install in agent/, agent/extensions/typescript-lsp/, and agent/extensions/web-fetch/.
-
-Run /login once pi config is installed to setup providers
-```
-
-## Manual Install
-
-### 1. Clone into `~/.pi`
-
 ```bash
-# Back up existing config if needed
-[ -d ~/.pi ] && mv ~/.pi ~/.pi.backup
+# Install Pi globally
+npm install -g @mariozechner/pi-coding-agent
 
+# Clone this config
 git clone https://github.com/shreeve1/pi-config.git ~/.pi
-```
 
-### 2. Install dependencies
-
-```bash
+# Install dependencies
 cd ~/.pi/agent && npm install
-cd ~/.pi/agent/extensions/typescript-lsp && npm install
-cd ~/.pi/agent/extensions/web-fetch && npm install
 ```
-
-### 3. Create auth.json
 
 Create `~/.pi/agent/auth.json` with your API keys:
 
 ```json
 {
-  "anthropic": {
-    "type": "api_key",
-    "key": "sk-ant-..."
-  },
-  "openai": {
-    "type": "api_key",
-    "key": "sk-proj-..."
-  },
-  "openrouter": {
-    "type": "api_key",
-    "key": "sk-or-..."
-  }
+  "anthropic": { "type": "api_key", "key": "sk-ant-..." },
+  "openai":    { "type": "api_key", "key": "sk-proj-..." },
+  "google-gemini-cli": { "type": "api_key", "key": "AIza..." }
 }
 ```
 
-Only add the providers you use. Anthropic is the default.
+Only add providers you use. For custom providers (Ollama, OpenRouter, etc.), add them to `~/.pi/agent/models.json`.
 
-### 4. Create models.json (optional)
+---
 
-If you use custom providers (Ollama, etc.), create `~/.pi/agent/models.json`:
+## Agent Teams
 
-```json
-{
-  "providers": {
-    "ollama": {
-      "baseUrl": "http://localhost:11434/v1",
-      "api": "openai-completions",
-      "apiKey": "ollama",
-      "streaming": false,
-      "models": [
-        { "id": "your-model-id", "name": "Display Name" }
-      ]
-    }
-  }
-}
+The primary workflow is **team-based orchestration**. You talk to a dispatcher; it delegates work to specialists. Agents accumulate knowledge across sessions through expertise files and session notes.
+
+```
+You
+ │
+ ▼
+Dispatcher  ←── team context, channel messages, expertise
+ │
+ ├──► scout          (read-only exploration)
+ ├──► planner        (design & task breakdown)
+ ├──► builder        (implementation)
+ ├──► reviewer       (plan & code review)
+ ├──► tester         (validation)
+ ├──► red-team       (security)
+ ├──► documenter     (docs & changelogs)
+ ├──► investigator   (root cause diagnosis)
+ └──► web-searcher   (live research)
 ```
 
-## How To Use — Agent Teams (Primary Workflow)
+### Team Dashboard Icons
 
-The primary workflow in this config is now **team-based orchestration**, not the old `/dev-*` linear flow.
+When running in team mode, each agent shows status and activity at a glance.
 
-```text
-Idea / Request
-   │
-   ▼
-/skill:create-team
-   │   (interview + tensions + roles)
-   ▼
-artifacts/specs/team-prd-<team>-<date>.md
-   │
-   ▼
-/skill:build-team <prd-path>
-   │   (CEO first, then one specialist per run)
-   ▼
-agents/<team>/*.md + agents/teams/<team>/
-   │
-   ▼
-Enable team dispatcher mode
-   │
-   ▼
-/agents-team  → pick team → dispatch_agent runs specialists
+#### Agent Status
+
+| Icon | Meaning |
+|------|---------|
+| `○` | Idle — ready, not running |
+| `●` | Running — currently working |
+| `✓` | Done — completed successfully |
+| `✗` | Error — encountered a failure |
+
+#### Activity Indicators
+
+| Indicator | Meaning |
+|-----------|---------|
+| `💬 N` | N messages in team channel |
+| `⏳` | Pending request from another agent |
+| `📚` | Expertise file loaded |
+| `📝 N` | Session notes count |
+| `⚙ N` | Tool calls made this dispatch |
+| `# N` | Dispatch run count |
+| `M:SS` | Elapsed time |
+| `Nk` | Context tokens used |
+
+### Team Commands
+
+| Command | What it does |
+|---------|-------------|
+| `/agents-team` | Switch active team |
+| `/agents-list` | List agents in current team |
+| `/agents-view` | Toggle dashboard layout (compact / cards) |
+| `/agents-grid <1–6\|auto>` | Control agent grid columns |
+| `/agents-comms` | Inspect team channel and pending requests |
+
+---
+
+## Built-In Teams
+
+### `full` — End-to-End Software Delivery (9 agents)
+
+| Agent | Model | Role |
+|-------|-------|------|
+| scout | gpt-5.3-codex | Read-only codebase exploration |
+| web-searcher | gemini-2.5-pro | Live research, docs, package versions |
+| planner | gpt-5.4 | Task breakdown, implementation plans |
+| builder | gpt-5.3-codex | Code implementation |
+| reviewer | claude-opus-4-6 | Plan and code review, risk assessment |
+| tester | gpt-5.3-codex | Test execution and validation |
+| documenter | gpt-5.4 | Docs, READMEs, changelogs |
+| red-team | gemini-2.5-pro | Security audits, vulnerability analysis |
+| investigator | gpt-5.4 | Root cause diagnosis (read-only) |
+
+**Pipelines:**
+
+```
+Implementation:   planner → reviewer → builder → reviewer → tester
+Debugging:        investigator → planner → builder → reviewer → tester
+Security:         ... → tester → red-team
+Documentation:    documenter (direct dispatch)
 ```
 
-### 1) Create a Team PRD (`create-team`)
+---
 
-Run:
+### `infra-ops` — Infrastructure Operations (6 agents)
+
+| Agent | Model | Role |
+|-------|-------|------|
+| infra-scout | gpt-5.3-codex | Read-only infrastructure exploration |
+| infra-responder | gpt-5.4 | Incident response and triage |
+| infra-analyst | gpt-5.4 | Root cause analysis |
+| infra-operator | gpt-5.3-codex | Deployment, configuration, runbooks |
+| infra-hardener | gpt-5.4 | Security hardening, policy management |
+| infra-documenter | gpt-5.4 | Infrastructure docs and runbooks |
+
+---
+
+### `pi-pi` — Pi Framework Experts + Meta-Improvement (10 agents)
+
+Seven read-only framework experts, three meta-improvement agents that can audit and refine the agent-team system itself.
+
+| Agent | Model | Role |
+|-------|-------|------|
+| ext-expert | claude-opus-4-6 | Pi extensions, hooks, lifecycle |
+| theme-expert | claude-opus-4-6 | Themes, color tokens, styling |
+| tui-expert | claude-opus-4-6 | Terminal UI, rendering, layout |
+| skill-expert | claude-opus-4-6 | SKILL.md format, skill packages |
+| config-expert | claude-opus-4-6 | settings.json, providers, models |
+| prompt-expert | claude-opus-4-6 | Prompt templates, LLM interaction |
+| agent-expert | claude-opus-4-6 | Agent definitions, teams, dispatch |
+| agent-auditor | gemini-2.5-pro | Read-only audit of agent behavior data |
+| prompt-engineer | gemini-2.5-pro | Refines agent prompts, expertise, skills |
+| config-tuner | gemini-2.5-pro | Adjusts team configs, boundaries, models |
+
+**Meta-improvement pipeline:**
+```
+agent-auditor → (findings) → prompt-engineer and/or config-tuner
+```
+
+---
+
+### `frontend` — UI Design + Implementation (5 agents)
+
+| Agent | Model | Role |
+|-------|-------|------|
+| planner | gpt-5.4 | Feature planning |
+| mockup-designer | gemini-2.5-pro | Visual mockups, design direction |
+| builder | gpt-5.3-codex | UI implementation |
+| ui-reviewer | claude-sonnet-4-6 | Visual QA, screenshot review |
+| bowser | claude-sonnet-4-6 | Headless browser automation |
+
+---
+
+### `info` — Research and Documentation (4 agents)
+
+| Agent | Model | Role |
+|-------|-------|------|
+| scout | gpt-5.3-codex | Codebase exploration |
+| web-searcher | gemini-2.5-pro | Web research |
+| reviewer | claude-opus-4-6 | Content review |
+| documenter | gpt-5.4 | Writing and documentation |
+
+---
+
+### `qa` — Validation and Risk (5 agents)
+
+| Agent | Model | Role |
+|-------|-------|------|
+| tester | gpt-5.3-codex | Test execution |
+| reviewer | claude-opus-4-6 | Code and plan review |
+| red-team | gemini-2.5-pro | Security and adversarial testing |
+| investigator | gpt-5.4 | Root cause diagnosis |
+| ui-reviewer | claude-sonnet-4-6 | Visual and UX review |
+
+---
+
+## Agent Architecture
+
+### Model Strategy
+
+| Tier | Models | Used For |
+|------|--------|----------|
+| **Premium** | claude-opus-4-6 | Deep review, security, framework expertise, audit |
+| **Strong** | gpt-5.4, gemini-2.5-pro | Planning, investigation, research, meta-improvement |
+| **Efficient** | gpt-5.3-codex | Implementation, testing, exploration, default work |
+| **Visual** | claude-sonnet-4-6, gemini-2.5-pro | UI review, mockups, browser automation |
+
+### Domain Locking
+
+Every write-capable agent declares `allowed_write_paths` in its frontmatter. The `domain-lock.ts` extension intercepts all write and edit tool calls and blocks any path outside the agent's declared scope.
+
+- Fail-closed: an agent with no `allowed_write_paths` declaration cannot write anywhere
+- Violation logged to `~/.pi/logs/domain-violations.jsonl`
+- Error message names the teammate who has write access to the blocked path
+
+### Learning and Persistence
+
+Agents accumulate knowledge across sessions through three layers:
+
+| Layer | File | Updated By | Purpose |
+|-------|------|------------|---------|
+| **Domain knowledge** | `teams/{team}/knowledge/{agent}.md` | Humans | Curated reference, never overwritten by agents |
+| **Expertise** | `teams/{team}/expertise/{agent}.md` | Agent (`update_expertise`) | Core mental model, grows over time |
+| **Session notes** | `teams/{team}/session-notes/{agent}.jsonl` | Agent (`add_session_note`) | Lightweight per-session observations |
+
+All three are injected into the agent's system prompt on each dispatch. The `mental-model.md` skill (in `agent-skills/`) tells each agent when and what to capture.
+
+### Team File Structure
+
+```
+~/.pi/agent/agents/
+├── {agent}.md                        ← Root-level agent definitions
+├── {team}/
+│   └── {agent}.md                    ← Team-specific overrides
+└── teams/
+    └── {team}/
+        ├── team.yaml                 ← Roster
+        ├── dispatcher.md             ← Dispatch protocol and pipelines
+        ├── context.md                ← Shared domain context
+        ├── brief.md                  ← Human-readable team summary
+        ├── expertise/
+        │   └── {agent}.md            ← Persistent expertise per agent
+        ├── knowledge/
+        │   └── {agent}.md            ← Read-only domain reference
+        ├── session-notes/
+        │   └── {agent}.jsonl         ← Append-only session learnings
+        └── agent-skills/
+            └── mental-model.md       ← Shared learning capture guidance
+```
+
+---
+
+## Creating New Teams
+
+Design and build a custom team from scratch:
 
 ```bash
-/skill:create-team
-```
-
-`create-team` interviews you and produces a buildable Team PRD that includes:
-- domain overview and stakes
-- explicit tensions (Red/Blue poles)
-- CEO (White) + specialist roster
-- per-member models, tools, and write boundaries
-- shared context + differentiated persona specs
-
-Output file:
-
-```text
-artifacts/specs/team-prd-<team-name>-<date>.md
-```
-
-### 2) Build the Team from the PRD (`build-team`)
-
-Run:
-
-```bash
-/skill:build-team artifacts/specs/team-prd-<team-name>-<date>.md
-```
-
-Behavior:
-- first run scaffolds `agents/teams/<team-slug>/` and builds the CEO first
-- each run builds exactly one pending member
-- updates `agents/teams/<team-slug>/team.yaml`
-- can be resumed safely across sessions
-
-Generated structure (typical):
-
-```text
-agent/agents/<team-slug>/<agent-id>.md
-agent/agents/teams/<team-slug>/team.yaml
-agent/agents/teams/<team-slug>/dispatcher.md
-agent/agents/teams/<team-slug>/brief.md
-agent/agents/teams/<team-slug>/context.md
-agent/agents/teams/<team-slug>/expertise/*.md
-agent/agents/teams/<team-slug>/agent-skills/mental-model.md
-agent/agents/teams/<team-slug>/session-notes/
-```
-
-### 3) Run Teams in Dispatcher Mode
-
-Enable team mode by loading `extensions/agent-team.ts` (either in settings or with `-e` on launch), then use:
-
-- `/agents-team` — switch active team
-- `/agents-list` — list loaded agents in current team
-- `/agents-view <compact|cards|toggle>` — change dashboard view
-- `/agents-grid <1-6|auto>` — control grid layout
-- `/agents-comms` — inspect team channel + active requests
-
-In team mode, the primary agent is a **dispatcher** and delegates all specialist work via `dispatch_agent`.
-
-### Built-In Teams in This Repo
-
-| Team | Purpose | Members |
-|---|---|---|
-| `full` | End-to-end software delivery | scout, web-searcher, planner, builder, reviewer, tester, documenter, red-team, investigator |
-| `frontend` | UI design + implementation loop | planner, mockup-designer, builder, ui-reviewer, bowser |
-| `info` | Research and documentation | scout, web-searcher, reviewer, documenter |
-| `qa` | Validation and risk review | tester, reviewer, red-team, investigator, ui-reviewer |
-| `infra-ops` | MSP infrastructure operations | infra-scout, infra-responder, infra-analyst, infra-operator, infra-hardener, infra-documenter |
-| `pi-pi` | Pi framework experts + meta-improvement | ext-expert, theme-expert, tui-expert, skill-expert, config-expert, prompt-expert, agent-expert, agent-auditor, prompt-engineer, config-tuner |
-
-### Team-First Routing (Replacing `/dev-*` as Default)
-
-Use these dispatcher patterns instead of the old `/dev-*` linear flow:
-
-- **Feature/refactor implementation:** `full` team implementation pipeline
-  - `planner → reviewer → builder → reviewer → tester` (optional `red-team`)
-- **Bug/root-cause work:** `full` debug pipeline
-  - `investigator → planner → builder → reviewer → tester`
-- **Infrastructure incidents/maintenance:** `infra-ops` pipelines from team dispatcher
-- **Pi agent system tuning:** `pi-pi` audit-first pipeline
-  - `agent-auditor → prompt-engineer and/or config-tuner`
-
-The `/dev-*` skills can still exist for compatibility, but this config is now documented and operated as **team-first**.
-
-### Quick Start (Team-First)
-
-```bash
-# 1) Design team
+# 1. Interview-driven design — produces a Team PRD
 /skill:create-team
 
-# 2) Build team from PRD
-/skill:build-team artifacts/specs/team-prd-<team-name>-<date>.md
+# 2. Build agents from the PRD (one per run, resumable)
+/skill:build-team artifacts/specs/team-prd-<name>-<date>.md
 
-# 3) Start team mode and select team
+# 3. Activate the team
 /agents-team
 ```
 
-## Memory Management — `pi-mem`
+`create-team` interviews you about the domain, identifies tensions (Red/Blue trade-offs), and produces a PRD with per-agent persona specs, model assignments, tool lists, and write boundaries.
 
-Pi-mem gives your agent persistent memory across sessions — project-scoped and global. Use it to save work, resume later, and build up cross-project learnings.
+`build-team` translates the PRD into working agent files, scaffolding the full team directory structure including expertise files, session-notes directory, and dispatcher protocol.
 
-```
-                    ┌──────────────────────────────────┐
-                    │      During a session...         │
-                    └──────┬──────────────┬────────────┘
-                           │              │
-                    Need to pause?   Learned something
-                    Mid-task?        cross-project?
-                           │              │
-                           ▼              ▼
-                    ┌─────────────┐ ┌─────────────┐
-                    │ /mem        │ │ /mem global  │
-                    │ checkpoint  │ │ <learning>   │
-                    └──────┬──────┘ └──────┬──────┘
-                           │               │
-                           ▼               ▼
-                    Saves resume      Saves to global
-                    context + links   memory with
-                    to plan file      category & tags
-                           │
-                           │
-                    ┌──────┴──────────────────────────┐
-                    │      Later / New session...      │
-                    └──────┬──────────────┬────────────┘
-                           │              │
-                           ▼              ▼
-                    ┌─────────────┐ ┌─────────────┐
-                    │ /mem plan   │ │ /mem search  │
-                    │ <plan.md>   │ │ "<query>"    │
-                    └──────┬──────┘ └──────┬──────┘
-                           │               │
-                           ▼               ▼
-                    Resume exactly    Find past sessions
-                    where you         and learnings
-                    left off          across projects
-                           │
-                           ▼
-                    ┌──────────────────────────────────┐
-                    │     Periodically: /mem cleanup    │
-                    │     Consolidate or prune old      │
-                    │     entries (always confirms)     │
-                    └──────────────────────────────────┘
-```
+---
 
-### Commands
+## Memory Management
+
+Pi-mem gives the agent persistent memory across sessions — project-scoped and global.
 
 | Command | What it does |
-|---|---|
+|---------|-------------|
 | `/mem` | Browse recent project sessions and global learnings |
-| `/mem search "query"` | Full-text search across all memory |
+| `/mem search "query"` | Full-text search across all saved memory |
 | `/mem save` | Save current session to project memory |
-| `/mem save <description>` | Save with a specific description |
 | `/mem checkpoint` | Save mid-session snapshot with resume context, linked to a plan |
-| `/mem global <learning>` | Save a cross-project learning (prompts for category & tags) |
+| `/mem global <learning>` | Save a cross-project learning with category and tags |
 | `/mem plan path/to/plan.md` | Resume work from a plan file's checkpoint history |
-| `/mem cleanup` | Consolidate or prune old entries (default: 7 days) |
-| `/mem cleanup N` | Cleanup entries older than N days |
+| `/mem cleanup` | Consolidate or prune old entries (confirms before deleting) |
 
-### When to Use What
+**Storage:**
+- Project memory: `~/.pi/data/memory/projects/{hash}-{name}/memory.db`
+- Global memory: `~/.pi/data/memory/global/memory.db`
 
-- **`/mem save`** — End of a session. Captures what you did so you can find it later.
-- **`/mem checkpoint`** — Mid-task, need to stop. Saves structured resume context (goal, done, in-progress, next steps, blockers) and links to your plan file so you can pick up exactly where you left off.
-- **`/mem global`** — You discovered a pattern, preference, or lesson that applies beyond the current project. Saved with category and tags for cross-project search.
-- **`/mem plan`** — Starting a new session on an existing plan. Loads the plan file and any linked checkpoints so the agent has full context.
-- **`/mem search`** — "Did I solve this before?" Search across all saved sessions and learnings.
-- **`/mem cleanup`** — Memory getting cluttered. Review old entries, consolidate related ones, or delete with confirmation.
-
-### Storage
-
-- **Project memory**: `~/.pi/data/memory/projects/{hash}-{name}/memory.db` — one SQLite DB per project
-- **Global memory**: `~/.pi/data/memory/global/memory.db` — shared across all projects
+---
 
 ## What's Included
 
 | Directory | Contents |
-|---|---|
-| `agent/skills/` | 20+ skills — planning, building, testing, investigating, brainstorming, etc. |
-| `agent/extensions/` | Extensions — ask-user, auto-compact, web-fetch, TypeScript LSP, subagents, etc. |
-| `agent/agents/` | Subagent definitions — worker, planner, reviewer, tester, scout |
-| `agent/themes/` | Custom themes (neon80s) |
-| `agent/prompts/` | Prompt templates for investigation/fix workflows |
-| `agent/scripts/` | Utility scripts (HaloPSA, memory CLI) |
-| `artifacts/` | Docs, plans, brainstorming notes |
+|-----------|----------|
+| `agent/agents/` | Agent definitions — root-level and team-specific |
+| `agent/agents/teams/` | Team configs, dispatcher protocols, expertise, session notes |
+| `agent/skills/` | 35+ skills — planning, building, testing, brainstorming, team creation, etc. |
+| `agent/extensions/` | TypeScript extensions — agent-team orchestration, domain locking, team comms, web fetch, TypeScript LSP, etc. |
+| `agent/themes/` | Custom themes |
+| `agent/prompts/` | Prompt templates |
+| `agent/scripts/` | Utility scripts |
+| `artifacts/` | Plans, specs, docs, brainstorming output |
+
+---
 
 ## Settings
 
 Default settings in `agent/settings.json`:
-- **Provider:** openai-codex
-- **Model:** gpt-5.3-codex
-- **Theme:** ember
-- **Thinking:** high
+
+| Setting | Default | Notes |
+|---------|---------|-------|
+| `defaultProvider` | `openai-codex` | Provider for the main session |
+| `defaultModel` | `gpt-5.3-codex` | Model for the main session |
+| `theme` | `ember` | UI color theme |
+| `defaultThinkingLevel` | `high` | Reasoning depth |
+| `extensions` | `["-extensions/agent-team.ts"]` | agent-team disabled by default; enable with `/agents-team` or `-e extensions/agent-team.ts` |
 
 Edit `~/.pi/agent/settings.json` to change defaults.
+
+---
 
 ## Updating
 
 ```bash
 cd ~/.pi && git pull
+cd agent && npm install
 ```
-
-Re-run `npm install` in the dependency directories if `package.json` files changed.

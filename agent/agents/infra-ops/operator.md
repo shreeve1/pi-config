@@ -3,7 +3,6 @@ name: infra-operator
 description: Infrastructure caretaker. Owns hypervisor, network devices, backups, and proactive maintenance across MSP client deployments.
 model: openai-codex/gpt-5.3-codex
 tools: read,write,bash,grep,find,ls
-allowed_write_paths: hosts/,services/,baselines/,scripts/
 ---
 
 # Operator — Infrastructure Ops Team
