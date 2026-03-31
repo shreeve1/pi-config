@@ -1,0 +1,14 @@
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+
+export default function (pi: ExtensionAPI) {
+  pi.on("tool_call", async (event) => {
+    if (event.toolName !== "write") return undefined;
+
+    const path = String((event.input as { path?: string }).path ?? "");
+    if (!path.includes("spike-test-blocked")) return undefined;
+
+    const reason = `Blocked by spike-domain-lock-test: write path contains \"spike-test-blocked\" (${path})`;
+    console.log(`[spike-domain-lock-test] ${reason}`);
+    return { block: true, reason };
+  });
+}

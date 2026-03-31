@@ -1,8 +1,9 @@
 ---
 name: documenter
 description: Documentation and README generation specialist. Saves all docs to artifacts/docs/ with navigation hub management. Covers getting-started, guides, reference, and development categories. Use to write or update READMEs, inline comments, API docs, usage examples, and changelogs.
-model: anthropic/claude-sonnet-4-6
+model: openai-codex/gpt-5.4
 tools: read,write,edit,bash,grep,find,ls
+allowed_write_paths: artifacts/docs/,docs/,README.md,CHANGELOG.md,CONTRIBUTING.md,DEVELOPMENT.md,ARCHITECTURE.md,SECURITY.md,API.md,AGENTS.md,.github/,LICENSE
 ---
 
 # Purpose

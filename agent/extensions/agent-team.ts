@@ -36,6 +36,7 @@ interface AgentDef {
 	description: string;
 	model?: string;
 	tools: string;
+	allowedWritePaths?: string;
 	systemPrompt: string;
 	file: string;
 }
@@ -136,7 +137,31 @@ function readExpertiseFile(tDir: string, agentName: string): string {
   } catch { return ""; }
 }
 
-interface SessionNote { timestamp: string; note: string; }
+function readDomainKnowledge(teamDir: string, agentSlug: string): string {
+  if (!teamDir) return "";
+  const knowledgeDir = join(teamDir, "knowledge");
+  const parts: string[] = [];
+  try {
+    const shared = readFileSync(join(knowledgeDir, "shared.md"), "utf-8").trim();
+    if (shared) parts.push(shared);
+  } catch {}
+  try {
+    const agentKnowledge = readFileSync(join(knowledgeDir, `${agentSlug}.md`), "utf-8").trim();
+    if (agentKnowledge) parts.push(agentKnowledge);
+  } catch {}
+  const combined = parts.join("\n\n---\n\n");
+  if (Buffer.byteLength(combined) > 65536) {
+    return Buffer.from(combined).subarray(0, 65536).toString("utf-8") + "\n\n[domain knowledge truncated]";
+  }
+  return combined;
+}
+
+function formatDomainKnowledgeBlock(dk: string): string {
+  if (!dk) return "";
+  return "\n## Domain Knowledge\n\n" + dk + "\n";
+}
+
+interface SessionNote { timestamp: string; note: string; summary?: boolean; compacted_count?: number; from?: string; to?: string; }
 
 function readSessionNotes(tDir: string, agentName: string, limit: number = 20): SessionNote[] {
   if (!tDir) return [];
@@ -154,7 +179,12 @@ function readSessionNotes(tDir: string, agentName: string, limit: number = 20): 
 
 function formatSessionNotesBlock(notes: SessionNote[]): string {
   if (notes.length === 0) return "";
-  const lines = notes.map(n => `- **${n.timestamp}**: ${n.note}`);
+  const lines = notes.map(n => {
+    if (n.summary) {
+      return `- **[SUMMARY of ${n.compacted_count || "?"} notes, ${n.from || "?"} to ${n.to || "?"}]**: ${n.note}`;
+    }
+    return `- **${n.timestamp}**: ${n.note}`;
+  });
   return "\n## Recent Session Notes\n\n" + lines.join("\n") + "\n";
 }
 
@@ -166,6 +196,28 @@ function formatExpertiseBlock(content: string): string {
 function formatContextBlock(content: string): string {
   if (!content) return "";
   return "\n## Shared Domain Context\n\n" + content + "\n";
+}
+
+function readAgentSkills(teamDir: string): string {
+  try {
+    const skillsDir = resolve(teamDir, "agent-skills");
+    if (!existsSync(skillsDir)) return "";
+    const files = readdirSync(skillsDir).filter(f => f.endsWith(".md")).sort();
+    let combined = "";
+    for (const file of files) {
+      const content = readFileSync(resolve(skillsDir, file), "utf-8").trim();
+      if (combined.length + content.length > 4000) break; // Guardrail: max 4000 chars total
+      combined += (combined ? "\n\n" : "") + content;
+    }
+    return combined;
+  } catch {
+    return "";
+  }
+}
+
+function formatAgentSkillsBlock(skillsText: string): string {
+  if (!skillsText) return "";
+  return `\n\n## Agent Skills\n\n${skillsText}`;
 }
 
 function readChannelMessages(cwd: string): ChannelMessage[] {
@@ -331,18 +383,24 @@ async function handleInputRequest(request: InputRequest, cwd: string, responsesD
     const hCuratedMessagesBlock = formatCuratedMessages(hCurated);
     const hContextContent = readContextFile(activeTeamDir);
     const hContextBlock = formatContextBlock(hContextContent);
+    const hDomainKnowledge = readDomainKnowledge(activeTeamDir, targetKey);
+    const hDomainBlock = formatDomainKnowledgeBlock(hDomainKnowledge);
     const hExpertiseContent = readExpertiseFile(activeTeamDir, targetKey);
     const hExpertiseBlock = formatExpertiseBlock(hExpertiseContent);
+    const hAgentSkills = readAgentSkills(activeTeamDir);
+    const hAgentSkillsBlock = formatAgentSkillsBlock(hAgentSkills);
     const hSessionNotes = readSessionNotes(activeTeamDir, targetKey);
     const hSessionNotesBlock = formatSessionNotesBlock(hSessionNotes);
 
-    const hCombinedPrompt = `${hContextBlock}${hTeamRosterBlock}${hCuratedMessagesBlock}${hExpertiseBlock}\n\n${targetState.def.systemPrompt}${hSessionNotesBlock}`;
+    const hCombinedPrompt = `${hContextBlock}${hTeamRosterBlock}${hCuratedMessagesBlock}${hDomainBlock}${hExpertiseBlock}${hAgentSkillsBlock}\n\n${targetState.def.systemPrompt}${hSessionNotesBlock}`;
     const reqPromptFile = join(tmpdir(), `pi-team-req-prompt-${targetKey}-${randomUUID()}.txt`);
     writeFileSync(reqPromptFile, hCombinedPrompt, "utf-8");
 
     const args = [
       "--mode", "json", "-p",
-      "--no-extensions", "-e", resolve(homedir(), ".pi/agent/extensions/team-comms.ts"),
+      "--no-extensions",
+      "-e", resolve(homedir(), ".pi/agent/extensions/team-comms.ts"),
+      "-e", resolve(homedir(), ".pi/agent/extensions/domain-lock.ts"),
       "--model", targetState.def.model || "anthropic/claude-sonnet-4-20250514",
       "--tools", targetState.def.tools,
       "--thinking", "off",
@@ -353,7 +411,7 @@ async function handleInputRequest(request: InputRequest, cwd: string, responsesD
     args.push(formattedTask);
     const proc = spawn("pi", args, {
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, PI_AGENT_NAME: targetKey, PI_TEAM_COMMS_DIR: commsDir, PI_TEAM_DIR: activeTeamDir, PI_COMMS_DEPTH: "1" },
+      env: { ...process.env, PI_AGENT_NAME: targetKey, PI_TEAM_COMMS_DIR: commsDir, PI_TEAM_DIR: activeTeamDir, PI_COMMS_DEPTH: "1", PI_ALLOWED_WRITE_PATHS: targetState.def.allowedWritePaths || "", PI_TEAM_WRITE_MAP: JSON.stringify(buildTeamWriteMap(agentStates)) },
     });
     let output = "";
     let hBuffer = "";
@@ -446,6 +504,23 @@ function savePreferences(prefs: Partial<TeamPrefs>, deleteKeys?: (keyof TeamPref
 
 function displayName(name: string): string {
 	return name.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+
+function buildTeamWriteMap(states: Map<string, AgentState>): Record<string, string[]> {
+	const map: Record<string, string[]> = {};
+	for (const state of states.values()) {
+		if (!state.def.allowedWritePaths) continue;
+		const agentDisplayName = displayName(state.def.name);
+		const prefixes = state.def.allowedWritePaths
+			.split(",")
+			.map(p => p.trim())
+			.filter(Boolean);
+		for (const prefix of prefixes) {
+			if (!map[prefix]) map[prefix] = [];
+			if (!map[prefix].includes(agentDisplayName)) map[prefix].push(agentDisplayName);
+		}
+	}
+	return map;
 }
 
 // ── Teams YAML Parser ────────────────────────────
@@ -591,6 +666,7 @@ function parseAgentFile(filePath: string): AgentDef | null {
 			description: frontmatter.description || "",
 			model: frontmatter.model || undefined,
 			tools: frontmatter.tools || "read,grep,find,ls",
+			allowedWritePaths: frontmatter.allowed_write_paths || undefined,
 			systemPrompt: match[2].trim(),
 			file: filePath,
 		};
@@ -1075,19 +1151,25 @@ export default function (pi: ExtensionAPI) {
 		const curatedMessagesBlock = formatCuratedMessages(curated);
 		const contextContent = readContextFile(activeTeamDir);
 		const contextBlock = formatContextBlock(contextContent);
+		const domainKnowledge = readDomainKnowledge(activeTeamDir, agentKey);
+		const domainBlock = formatDomainKnowledgeBlock(domainKnowledge);
 		const expertiseContent = readExpertiseFile(activeTeamDir, agentKey);
 		const expertiseBlock = formatExpertiseBlock(expertiseContent);
+		const agentSkills = readAgentSkills(activeTeamDir);
+		const agentSkillsBlock = formatAgentSkillsBlock(agentSkills);
 		const sessionNotes = readSessionNotes(activeTeamDir, agentKey);
 		const sessionNotesBlock = formatSessionNotesBlock(sessionNotes);
 
-		const combinedPrompt = `${contextBlock}${teamRosterBlock}${curatedMessagesBlock}${expertiseBlock}\n\n${state.def.systemPrompt}${sessionNotesBlock}`;
+		const combinedPrompt = `${contextBlock}${teamRosterBlock}${curatedMessagesBlock}${domainBlock}${expertiseBlock}${agentSkillsBlock}\n\n${state.def.systemPrompt}${sessionNotesBlock}`;
 		const promptFile = join(tmpdir(), `pi-team-comms-prompt-${agentKey}-${randomUUID()}.txt`);
 		writeFileSync(promptFile, combinedPrompt, "utf-8");
 
 		const args = [
 			"--mode", "json",
 			"-p",
-			"--no-extensions", "-e", resolve(homedir(), ".pi/agent/extensions/team-comms.ts"),
+			"--no-extensions",
+			"-e", resolve(homedir(), ".pi/agent/extensions/team-comms.ts"),
+			"-e", resolve(homedir(), ".pi/agent/extensions/domain-lock.ts"),
 			"--model", model,
 			"--tools", state.def.tools,
 			"--thinking", "off",
@@ -1112,6 +1194,8 @@ export default function (pi: ExtensionAPI) {
 					PI_AGENT_NAME: agentKey,
 					PI_TEAM_COMMS_DIR: resolve(ctx.cwd, COMMS_DIR_NAME),
 					PI_TEAM_DIR: activeTeamDir,
+					PI_ALLOWED_WRITE_PATHS: state.def.allowedWritePaths || "",
+					PI_TEAM_WRITE_MAP: JSON.stringify(buildTeamWriteMap(agentStates)),
 				},
 			});
 

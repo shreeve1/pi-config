@@ -1,0 +1,7 @@
+name: frontend
+agents:
+  - planner
+  - mockup-designer
+  - builder
+  - ui-reviewer
+  - bowser

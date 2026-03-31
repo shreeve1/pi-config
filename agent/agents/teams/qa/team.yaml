@@ -1,0 +1,7 @@
+name: qa
+agents:
+  - tester
+  - reviewer
+  - red-team
+  - investigator
+  - ui-reviewer

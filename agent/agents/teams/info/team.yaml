@@ -1,0 +1,6 @@
+name: info
+agents:
+  - scout
+  - web-searcher
+  - reviewer
+  - documenter

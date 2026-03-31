@@ -1,8 +1,9 @@
 ---
 name: red-team
 description: Security and adversarial testing specialist. Finds vulnerabilities, edge cases, and failure modes. Saves findings to artifacts/docs/reference/ with navigation hub management. READ-ONLY for code inspection — only writes the findings report.
-model: anthropic/claude-opus-4-6
+model: google-gemini-cli/gemini-2.5-pro
 tools: read,bash,grep,find,ls,write,edit
+allowed_write_paths: artifacts/docs/reference/,artifacts/docs/security/,SECURITY.md
 ---
 
 # Red Team Security Review

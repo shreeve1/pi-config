@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, appendFileSync, readFileSync, writeFileSync, unlinkSync } from "fs";
+import { existsSync, mkdirSync, appendFileSync, readFileSync, writeFileSync, unlinkSync, renameSync } from "fs";
 import { join } from "path";
 import { randomUUID } from "crypto";
 
@@ -142,4 +142,71 @@ export default function teamComms(pi: any) {
       }
     },
   });
+
+		pi.registerTool({
+		name: "compact_session_notes",
+		description: "Compact old session notes by replacing the oldest N notes with a summary. Creates a backup first. Use when your session notes are getting long (15+ entries).",
+		parameters: {
+			type: "object",
+			properties: {
+				summary: { type: "string", description: "Your written summary of the oldest notes being compacted (max 2KB)" },
+				compact_count: { type: "number", description: "Number of oldest notes to replace with the summary" }
+			},
+			required: ["summary", "compact_count"]
+		},
+		async execute(_toolCallId: string, params: Record<string, unknown>) {
+			const summary = params.summary as string;
+			const compact_count = params.compact_count as number;
+			if (!teamDir) return "No team directory configured.";
+			if (!summary || typeof summary !== "string") return "Summary is required.";
+			if (Buffer.byteLength(summary) > 2048) return "Summary too large (max 2KB).";
+			if (!compact_count || compact_count < 1) return "compact_count must be at least 1.";
+
+			const notesDir = join(teamDir, "session-notes");
+			const notesPath = join(notesDir, `${agentName}.jsonl`);
+
+			if (!existsSync(notesPath)) return "No session notes file found.";
+
+			const raw = readFileSync(notesPath, "utf-8");
+			const lines = raw.split("\n").filter(l => l.trim());
+			const totalNotes = lines.length;
+
+			if (totalNotes <= 5) return `Only ${totalNotes} notes — no compaction needed (minimum 5 to keep).`;
+			const maxCompact = Math.max(0, totalNotes - 5);
+			if (compact_count > maxCompact) return `Cannot compact ${compact_count} notes — must keep at least 5 recent. Max compactable: ${maxCompact}.`;
+
+			// Create backup
+			const backupPath = notesPath + ".bak";
+			writeFileSync(backupPath, raw, "utf-8");
+
+			// Parse date range from compacted notes
+			const oldNotes = lines.slice(0, compact_count);
+			let fromDate = "", toDate = "";
+			try {
+				const first = JSON.parse(oldNotes[0]);
+				const last = JSON.parse(oldNotes[oldNotes.length - 1]);
+				fromDate = first.timestamp || "";
+				toDate = last.timestamp || "";
+			} catch {}
+
+			// Build summary entry
+			const summaryEntry = JSON.stringify({
+				timestamp: new Date().toISOString(),
+				note: summary,
+				summary: true,
+				compacted_count: compact_count,
+				from: fromDate,
+				to: toDate
+			});
+
+			// Atomic write: tmp file then rename
+			const remaining = lines.slice(compact_count);
+			const tmpPath = notesPath + ".tmp";
+			writeFileSync(tmpPath, summaryEntry + "\n" + remaining.join("\n") + "\n", "utf-8");
+			renameSync(tmpPath, notesPath);
+
+			return `Compacted ${compact_count} notes into 1 summary. ${remaining.length + 1} entries remain. Backup at ${backupPath}`;
+		}
+	});
+
 }

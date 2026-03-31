@@ -1,8 +1,9 @@
 ---
 name: reviewer
 description: Code and plan review specialist. Reviews plans for feasibility and code for correctness, categorising findings as Critical, Important, or Minor.
-model: openai-codex/gpt-5.3-codex
+model: anthropic/claude-opus-4-6
 tools: read,bash,grep,find,ls,write,edit
+allowed_write_paths: artifacts/plans/,artifacts/docs/
 ---
 
 # Reviewer

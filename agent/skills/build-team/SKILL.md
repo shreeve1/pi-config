@@ -12,6 +12,8 @@ Read these references before generation choices:
 - Upstream PRD format source: `~/.pi/agent/skills/create-team/SKILL.md`
 - Existing team format examples: `~/.pi/agent/agents/teams/`
 - Existing agent frontmatter examples: `~/.pi/agent/agents/`
+- Canonical mental-model skill: `~/.pi/agent/agents/teams/full/agent-skills/mental-model.md`
+- Domain locking extension: `~/.pi/agent/extensions/domain-lock.ts`
 
 ---
 
@@ -26,7 +28,7 @@ Read these references before generation choices:
    - `## CEO: {Name}`
    - `## Team Members` with `### {Member Name}` subsections
 4. Also extract team metadata from header lines (`# Team PRD: ...`, `**Domain:**`, etc.).
-5. Build canonical roster records (CEO + specialists) with: display name, role, model, tools, and Agent ID.
+5. Build canonical roster records (CEO + specialists) with: display name, role, model, tools, Agent ID, and allowed write paths (if specified in PRD).
 6. Agent ID rules (canonical identity):
    - Preferred source: `- **Agent ID:** ...` in each CEO/member block
    - Required format: lowercase kebab-case, namespaced as `{team-slug}-{role-slug}`
@@ -66,7 +68,12 @@ If first run (team folder missing), create:
 ├── dispatcher.md
 ├── brief.md
 ├── context.md
-└── expertise/
+├── expertise/
+├── agent-skills/
+│   └── mental-model.md
+└── session-notes/
+└── knowledge/                # read-only domain files
+knowledge/                # read-only domain files (human-curated)
 ```
 
 Scaffold content requirements:
@@ -78,8 +85,15 @@ Scaffold content requirements:
   (empty list initially)
 - `context.md`: exact `## Shared Domain Context` content from PRD (verbatim)
 - `brief.md`: concise human-readable team summary (domain, tensions, roster, usage)
-- `dispatcher.md`: dispatch guidance from CEO spec (plain markdown, no frontmatter)
+- `dispatcher.md`: dispatch guidance from CEO spec (plain markdown, no frontmatter). MUST include a "Bias Toward Action" section with these rules:
+    - Default to dispatching agents to do work — don't suggest commands for the user to run
+    - Fall back to user only when: a genuine decision is needed, agents are truly blocked, or you've tried and failed
+    - Don't do partial work — diagnose AND fix, don't just present findings
+    - Run diagnostics through agents (investigator/scout), not as commands for the user
 - Ensure `expertise/` directory exists
+- Create `agent-skills/` directory and copy `mental-model.md` from `~/.pi/agent/agents/teams/full/agent-skills/mental-model.md` (canonical source)
+- Create `session-notes/` directory (empty). Do not precreate files; runtime tool owns file creation
+- Create `knowledge/` directory (empty). For human-curated read-only domain files that agents can read but not overwrite
 - Ensure agent folder `~/.pi/agent/agents/{team-slug}/` exists
 
 If scaffold already exists, do not overwrite unchanged files unless missing.
@@ -115,13 +129,14 @@ Create two files for the selected member.
 ### File A: Agent definition
 Path: `~/.pi/agent/agents/{team-slug}/{agent-id}.md`
 
-Required frontmatter (all 4 fields explicitly):
+Required frontmatter (all fields explicitly):
 ```yaml
 ---
 name: {agent-id}
 description: {one-line role description}
 model: {model from PRD — use the tier assigned during create-team}
 tools: {from PRD Recommended Tools}
+allowed_write_paths: {from PRD Allowed Write Paths as a single comma-separated string; omit line entirely for read-only agents}
 ---
 ```
 
@@ -136,6 +151,7 @@ Body requirements:
   - Shared domain context section
   - Relationships line(s) naming likely alignments/clashes
   - Team communication expectations (`post_to_channel`, `request_input`)
+  - Write domain boundaries (if write-capable): explicitly state what paths they may modify and why
 
 **Persona Translation Rules** (apply to every agent):
 - **PERSPECTIVE block**: PRD uses conceptual attractors ("Buffett meets Christensen by way of Taleb"). Translate into second-person thinking guidance: "When evaluating opportunities, you apply zero-to-one thinking. You combine patient capital logic with acute awareness of fragility."
@@ -200,6 +216,11 @@ Leave `Session Notes` empty for accumulation during runtime.
 
 ## Constraints
 
+### Team Structure
+- ALWAYS create folder-based teams under `agents/teams/{team-slug}/`
+- NEVER add entries to `agents/teams.yaml` (legacy fallback file)
+- Every team folder MUST contain: team.yaml, dispatcher.md, context.md, agent-skills/, session-notes/, knowledge/
+
 - Build exactly one member per invocation.
 - Use filesystem as source of truth (no sidecar progress files).
 - Agent files must be named by canonical Agent ID (`{team-slug}-{role-slug}`).
@@ -216,11 +237,20 @@ Deferred (do not implement in v1):
 
 ---
 
+
+### Write Agent Validation Gate
+Before generating any agent .md file: if the agent has `write` or `edit` in its tools, it MUST have `allowed_write_paths` set. If missing:
+- STOP generation
+- Report: "Agent {name} has write/edit tools but no allowed_write_paths — domain-lock will block ALL writes"
+- Ask the user to define write boundaries before continuing
+
 ## Quick Verification After Writing
 
 Run:
 - `wc -l ~/.pi/agent/skills/build-team/SKILL.md`
 - `head -10 ~/.pi/agent/skills/build-team/SKILL.md`
 - `grep -n "^#" ~/.pi/agent/skills/build-team/SKILL.md`
+- `grep -n "allowed_write_paths" ~/.pi/agent/skills/build-team/SKILL.md`
+- `grep -n "agent-skills\|mental-model\|session-notes" ~/.pi/agent/skills/build-team/SKILL.md`
 
-Ensure SKILL.md stays under 300 lines.
+Ensure SKILL.md stays under 320 lines and includes domain-lock + mental-model scaffolding requirements.

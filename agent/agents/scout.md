@@ -1,7 +1,7 @@
 ---
 name: scout
 description: Codebase exploration specialist. Use to understand project structure, find where things are defined, map dependencies, or gather context before planning or implementing. READ-ONLY — never modifies files.
-model: anthropic/claude-haiku
+model: openai-codex/gpt-5.3-codex
 tools: read,bash,grep,find,ls
 ---
 

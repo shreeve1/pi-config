@@ -1,7 +1,7 @@
 ---
 name: investigator
 description: Debugging and root cause analysis specialist. Traces symptoms to exact file, line, and reason. Stops at diagnosis — does not implement fixes.
-model: openai-codex/gpt-5.3-codex
+model: openai-codex/gpt-5.4
 tools: read,bash,grep,find,ls
 ---
 

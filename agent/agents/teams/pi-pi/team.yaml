@@ -1,0 +1,13 @@
+# Pi framework experts + meta-improvement team
+name: pi-pi
+agents:
+  - ext-expert
+  - theme-expert
+  - tui-expert
+  - skill-expert
+  - config-expert
+  - prompt-expert
+  - agent-expert
+  - agent-auditor
+  - prompt-engineer
+  - config-tuner

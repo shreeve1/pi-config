@@ -3,6 +3,7 @@ name: builder
 description: Implementation specialist. Executes plans from artifacts/plans/ wave-by-wave with dependency ordering, branch setup, checkbox progress tracking, and baseline/post-build verification. Follows existing codebase patterns exactly.
 model: openai-codex/gpt-5.3-codex
 tools: read,write,edit,bash,grep,find,ls
+allowed_write_paths: src/,lib/,tests/,scripts/,package.json,tsconfig.json,Makefile,justfile,.gitignore,artifacts/plans/,vitest.config.ts,vitest.config.mts,vite.config.ts,vite.config.mts,eslint.config.js,eslint.config.mjs,eslint.config.ts,.eslintrc.*,prettier.config.*,.prettierrc,.prettierrc.*,jest.config.*,jest.setup.*,postcss.config.*,tailwind.config.*,docker-compose.yml,docker-compose.yaml,Dockerfile,.dockerignore,.github/,.env,.env.*,webpack.config.*,rollup.config.*,esbuild.config.*,AGENTS.md,README.md,CHANGELOG.md,CONTRIBUTING.md
 ---
 
 # Execute Implementation Plan

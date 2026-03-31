@@ -123,9 +123,9 @@ Design the CEO first, then define shared context used by all members.
 
 Write 2-4 paragraphs of baseline context all agents share (facts, constraints, operating realities, known metrics patterns).
 
-### CEO Specification (11 required components)
+### CEO Specification (12 required components)
 
-Generate all eleven:
+Generate all twelve:
 1. Name
 2. Agent ID (`{team-slug}-{role-slug}`)
 3. Narrative Description (conceptual attractor)
@@ -137,6 +137,7 @@ Generate all eleven:
 9. Handling Disagreement
 10. Domain Expertise
 11. Recommended Tools (must include `dispatch_agent`)
+12. Allowed Write Paths (`allowed_write_paths` as a single comma-separated string, e.g. `src/,tests/,scripts/`; omit for read-only agents)
 
 Also include **Constraint Policy**: when to stop debate, required evidence threshold for final call, and what to do with unresolved tensions.
 
@@ -160,7 +161,8 @@ For each member include all required components:
 7. Domain Expertise (3+ specific seed areas/frameworks)
 8. Cognitive Biases (self-aware tendencies)
 9. Recommended Tools
-10. Relationships (directional, topic-specific)
+10. Allowed Write Paths (`allowed_write_paths` as a single comma-separated string, e.g. `src/,tests/,scripts/`; omit for read-only agents — those without `write` or `edit` tools)
+11. Relationships (directional, topic-specific)
 
 Style guidance:
 - narrative is character-first, not role boilerplate
@@ -235,6 +237,8 @@ White team arbiter and orchestrator
 {CEO expertise areas}
 ### Recommended Tools
 {tools, must include dispatch_agent}
+### Allowed Write Paths
+{`allowed_write_paths` single comma-separated string (e.g. `src/,tests/,scripts/`), or "none (read-only)" if CEO has no write/edit tools}
 ### Domain Context Reference
 See: **## Shared Domain Context**
 
@@ -256,6 +260,8 @@ See: **## Shared Domain Context**
 {self-aware tendencies}
 ### Recommended Tools
 {tool list}
+### Allowed Write Paths
+{`allowed_write_paths` single comma-separated string (e.g. `src/,tests/,scripts/`), or "none (read-only)" if no write/edit tools}
 ### Relationships
 - **Likely agrees with:** {who} on {what}
 - **Likely clashes with:** {who} on {what}
@@ -274,6 +280,9 @@ Before final save, validate:
 - every Agent ID is present for CEO and all specialists
 - every Agent ID is unique (no collisions)
 - every Agent ID is lowercase kebab-case and namespaced as `{team-slug}-{role-slug}`
+- every member with `write` or `edit` tools has `Allowed Write Paths` specified
+- read-only members have no `Allowed Write Paths` (or explicit `none (read-only)`)
+- output explicitly notes `agent-skills/mental-model.md` and `session-notes/` setup for downstream `/skill:build-team`
 
 After save:
 1. Ask if user wants revisions to specific member(s)
@@ -283,10 +292,39 @@ After save:
 
 ---
 
+
+## Dispatcher Behavioral Requirements
+
+When designing the CEO/dispatcher spec, always include guidance that the dispatcher should:
+- **Bias toward action**: dispatch agents to do the work, don't suggest commands for the user to run
+- **Complete tasks**: diagnose AND fix — don't stop at diagnosis and present findings
+- **Fall back to user only when**: a genuine decision is needed, agents are truly blocked, or dispatch has been tried and failed
+- **Run diagnostics through agents**: when commands need running, dispatch investigator/scout — don't list commands for the user
+
+This guidance must appear in the generated dispatcher.md as a "Bias Toward Action" section.
+
+
+## Team Structure Requirements
+
+- Teams MUST be folder-based: create `agents/teams/{team-slug}/` with team.yaml, dispatcher.md, context.md
+- NEVER create teams as entries in `agents/teams.yaml` — that is a legacy fallback
+- Every team folder must include: agent-skills/ (with mental-model.md), session-notes/, knowledge/
+
+## Write Domain Assignment
+
+During team composition and deep design, explicitly define write boundaries per member.
+
+- Ask which members truly need `write` or `edit` tools vs. read-only access.
+- For write-capable members, define `allowed_write_paths` as a **single comma-separated string** (not a YAML list), e.g. `src/,tests/,scripts/`.
+- Keep paths minimal and role-aligned to prevent cross-domain edits.
+- Read-only members omit `allowed_write_paths` (or use explicit `none (read-only)` in PRD narrative).
+- Note that writes under `~/.pi/agent/` (including team `agent-skills/` and `session-notes/`) are runtime-exempt and managed separately.
+
 ## Design Principles
 
 - **Conversational, not checklist:** ask naturally; adapt to answers.
 - **Guided reasoning:** propose trade-offs, avoid rigid form filling.
+- **Domain boundaries by design:** define write boundaries during team design, not after build.
 - **stunspot methodology:** use conceptual attractors and “X meets Y by way of Z.”
 - **BFI-2 traits:** write spectrum behaviors with qualifiers, never binary labels.
 - **Biases as self-awareness:** frame tendencies as deliberate, known pulls.
