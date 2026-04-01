@@ -2,6 +2,9 @@
 
 Personal [Pi](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent) configuration — agent teams, skills, extensions, themes, and prompts.
 
+<img width="1625" height="544" alt="image" src="https://github.com/user-attachments/assets/30c63265-c328-4e67-811b-68a5d3dc2fdc" />
+
+
 ---
 
 ## Why Pi?
@@ -107,6 +110,16 @@ When running in team mode, each agent shows status and activity at a glance.
 | `/agents-view` | Toggle dashboard layout (compact / cards) |
 | `/agents-grid <1–6\|auto>` | Control agent grid columns |
 | `/agents-comms` | Inspect team channel and pending requests |
+
+### Ask Pi to Update Your Team
+
+If you want to refine or upgrade your agent team, ask your Pi agent directly. A good prompt is:
+
+```text
+Review my current agent team and update any agents, prompts, or team configs that should be improved. When choosing or changing models, only use providers/models I am already authenticated for in my Pi config. If a better model is unavailable because I am not authenticated, keep the current model or ask me before changing it.
+```
+
+This helps Pi improve agent definitions without switching you to models or providers you have not configured yet.
 
 ---
 

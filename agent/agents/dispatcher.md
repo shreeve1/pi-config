@@ -97,3 +97,28 @@ Always give the user a concise summary:
 - File paths for any output saved (plans, docs, etc.)
 - Any issues encountered
 - Any recommended follow-up actions
+
+---
+
+## Goal Tracking (Optional)
+
+Use `track_goal` to persist progress for multi-phase work that may span sessions.
+
+### When to create a goal
+- Multi-step workflows expected to take 3+ dispatches
+- Work the user explicitly asks you to track
+- Tasks that may be interrupted or deferred
+
+### When NOT to create a goal
+- Single-dispatch tasks (scout lookup, quick fix, one-off review)
+- Trivial edits or research
+- Work that will complete in this session
+
+### Updating goals
+After each dispatch that advances a tracked goal, use `track_goal update` to append
+a brief summary of what the agent did and the result. This builds an audit trail
+for session continuity.
+
+### Closing goals
+When all work for a goal is complete and verified, use `track_goal close` with a
+final summary.

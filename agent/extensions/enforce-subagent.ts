@@ -11,15 +11,24 @@
  * The enforcement kicks in after N turns, allowing initial exploration
  * with read-only tools (read, grep, find, ls) before requiring delegation
  * for any modifications.
+ *
+ * Settings persist across sessions via ~/.pi/agent/enforce-subagent-config.json
  */
 
 import { isToolCallEventType, type ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import * as fs from "fs";
+import * as path from "path";
 
 interface EnforceConfig {
 	enabled: boolean;
 	threshold: number;
 	blockedTools: string[];
 	hintShown: boolean;
+}
+
+interface PersistedConfig {
+	enabled?: boolean;
+	threshold?: number;
 }
 
 const DEFAULT_CONFIG: EnforceConfig = {
@@ -29,8 +38,48 @@ const DEFAULT_CONFIG: EnforceConfig = {
 	hintShown: false,
 };
 
+const CONFIG_PATH = path.join(
+	process.env.HOME || process.env.USERPROFILE || "~",
+	".pi",
+	"agent",
+	"enforce-subagent-config.json"
+);
+
+function loadPersistedConfig(): PersistedConfig {
+	try {
+		if (fs.existsSync(CONFIG_PATH)) {
+			const raw = fs.readFileSync(CONFIG_PATH, "utf-8");
+			return JSON.parse(raw) as PersistedConfig;
+		}
+	} catch {
+		// Ignore parse errors, use defaults
+	}
+	return {};
+}
+
+function savePersistedConfig(partial: PersistedConfig): void {
+	try {
+		const dir = path.dirname(CONFIG_PATH);
+		if (!fs.existsSync(dir)) {
+			fs.mkdirSync(dir, { recursive: true });
+		}
+		// Merge with existing file
+		const existing = loadPersistedConfig();
+		const merged = { ...existing, ...partial };
+		fs.writeFileSync(CONFIG_PATH, JSON.stringify(merged, null, 2) + "\n", "utf-8");
+	} catch {
+		// Silently fail — persistence is best-effort
+	}
+}
+
 export default function (pi: ExtensionAPI) {
-	const config = { ...DEFAULT_CONFIG };
+	// Load persisted settings on startup
+	const persisted = loadPersistedConfig();
+	const config: EnforceConfig = {
+		...DEFAULT_CONFIG,
+		...(persisted.enabled !== undefined && { enabled: persisted.enabled }),
+		...(persisted.threshold !== undefined && { threshold: persisted.threshold }),
+	};
 	let turnCount = 0;
 
 	// Track turns
@@ -135,10 +184,12 @@ subagent({ chain: [{ agent: "worker", task: "..." }, ...] })`,
 
 			if (action === "on") {
 				config.enabled = true;
-				ctx.ui.notify("Subagent enforcement ENABLED", "info");
+				savePersistedConfig({ enabled: true });
+				ctx.ui.notify("Subagent enforcement ENABLED (persisted)", "info");
 			} else if (action === "off") {
 				config.enabled = false;
-				ctx.ui.notify("Subagent enforcement DISABLED", "warning");
+				savePersistedConfig({ enabled: false });
+				ctx.ui.notify("Subagent enforcement DISABLED (persisted)", "warning");
 			} else if (action === "status" || !action) {
 				ctx.ui.notify(
 					`Subagent enforcement: ${config.enabled ? "ON" : "OFF"}\n` +
@@ -171,8 +222,9 @@ subagent({ chain: [{ agent: "worker", task: "..." }, ...] })`,
 			}
 
 			config.threshold = value;
+			savePersistedConfig({ threshold: value });
 			ctx.ui.notify(
-				`Threshold set to ${value} turn${value !== 1 ? "s" : ""}`,
+				`Threshold set to ${value} turn${value !== 1 ? "s" : ""} (persisted)`,
 				"info"
 			);
 		},

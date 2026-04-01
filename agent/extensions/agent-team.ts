@@ -401,6 +401,9 @@ async function handleInputRequest(request: InputRequest, cwd: string, responsesD
       "--no-extensions",
       "-e", resolve(homedir(), ".pi/agent/extensions/team-comms.ts"),
       "-e", resolve(homedir(), ".pi/agent/extensions/domain-lock.ts"),
+      ...(hasWebTools(targetState.def.tools)
+        ? ["-e", resolve(homedir(), ".pi/agent/extensions/web-fetch/index.ts")]
+        : []),
       "--model", targetState.def.model || "anthropic/claude-sonnet-4-20250514",
       "--tools", targetState.def.tools,
       "--thinking", "off",
@@ -504,6 +507,14 @@ function savePreferences(prefs: Partial<TeamPrefs>, deleteKeys?: (keyof TeamPref
 
 function displayName(name: string): string {
 	return name.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+
+function hasWebTools(tools: string): boolean {
+	const configuredTools = tools
+		.split(",")
+		.map((tool) => tool.trim().toLowerCase())
+		.filter(Boolean);
+	return configuredTools.includes("web_search") || configuredTools.includes("web_fetch");
 }
 
 function buildTeamWriteMap(states: Map<string, AgentState>): Record<string, string[]> {
@@ -1170,6 +1181,9 @@ export default function (pi: ExtensionAPI) {
 			"--no-extensions",
 			"-e", resolve(homedir(), ".pi/agent/extensions/team-comms.ts"),
 			"-e", resolve(homedir(), ".pi/agent/extensions/domain-lock.ts"),
+			...(hasWebTools(state.def.tools)
+				? ["-e", resolve(homedir(), ".pi/agent/extensions/web-fetch/index.ts")]
+				: []),
 			"--model", model,
 			"--tools", state.def.tools,
 			"--thinking", "off",
@@ -1185,6 +1199,7 @@ export default function (pi: ExtensionAPI) {
 		args.push(task);
 
 		const textChunks: string[] = [];
+		let lastAssistantText = "";
 
 		return new Promise((resolvePromise) => {
 			const proc = spawn("pi", args, {
@@ -1224,6 +1239,14 @@ export default function (pi: ExtensionAPI) {
 							updateWidget();
 						} else if (event.type === "message_end") {
 							const msg = event.message;
+							// Capture assistant text as fallback if text_delta streaming was missed
+							if (msg?.role === "assistant") {
+								const text = (msg.content || [])
+									.filter((c: any) => c.type === "text")
+									.map((c: any) => c.text || "")
+									.join("");
+								if (text) lastAssistantText = text;
+							}
 							if (msg?.usage && contextWindow > 0) {
 								state.contextPct = ((msg.usage.input || 0) / contextWindow) * 100;
 								updateWidget();
@@ -1231,9 +1254,17 @@ export default function (pi: ExtensionAPI) {
 						} else if (event.type === "agent_end") {
 							const msgs = event.messages || [];
 							const last = [...msgs].reverse().find((m: any) => m.role === "assistant");
-							if (last?.usage && contextWindow > 0) {
-								state.contextPct = ((last.usage.input || 0) / contextWindow) * 100;
-								updateWidget();
+							if (last) {
+								// Capture assistant text as fallback
+								const text = (last.content || [])
+									.filter((c: any) => c.type === "text")
+									.map((c: any) => c.text || "")
+									.join("");
+								if (text) lastAssistantText = text;
+								if (last?.usage && contextWindow > 0) {
+									state.contextPct = ((last.usage.input || 0) / contextWindow) * 100;
+									updateWidget();
+								}
 							}
 						}
 					} catch {}
@@ -1251,6 +1282,15 @@ export default function (pi: ExtensionAPI) {
 						if (event.type === "message_update") {
 							const delta = event.assistantMessageEvent;
 							if (delta?.type === "text_delta") textChunks.push(delta.delta || "");
+						} else if (event.type === "message_end") {
+							const msg = event.message;
+							if (msg?.role === "assistant") {
+								const text = (msg.content || [])
+									.filter((c: any) => c.type === "text")
+									.map((c: any) => c.text || "")
+									.join("");
+								if (text) lastAssistantText = text;
+							}
 						}
 					} catch {}
 				}
@@ -1264,7 +1304,8 @@ export default function (pi: ExtensionAPI) {
 					state.sessionFile = agentSessionFile;
 				}
 
-				const full = textChunks.join("");
+				// Fall back to last captured assistant message if streaming produced nothing
+				const full = textChunks.join("") || lastAssistantText;
 				state.lastWork = full.split("\n").filter((l: string) => l.trim()).pop() || "";
 				updateWidget();
 
@@ -1322,11 +1363,21 @@ export default function (pi: ExtensionAPI) {
 					? result.output.slice(0, 8000) + "\n\n... [truncated]"
 					: result.output;
 
-				const status = result.exitCode === 0 ? "done" : "error";
+				// Treat exit-0 with empty output as an error — agent ran but produced nothing
+				const status = result.exitCode !== 0
+					? "error"
+					: result.output.trim() === ""
+					? "error"
+					: "done";
+
+				const outputText = result.output.trim() === ""
+					? "(no output returned by agent — the agent exited without producing any text)"
+					: truncated;
+
 				const summary = `[${agent}] ${status} in ${Math.round(result.elapsed / 1000)}s`;
 
 				return {
-					content: [{ type: "text", text: `${summary}\n\n${truncated}` }],
+					content: [{ type: "text", text: `${summary}\n\n${outputText}` }],
 					details: {
 						agent,
 						task,
@@ -1652,7 +1703,7 @@ ${agentCatalog}`,
 		startRequestWatcher(_ctx.cwd, _ctx);
 
 		// Lock down to dispatcher-only (tool already registered at top level)
-		pi.setActiveTools(["dispatch_agent"]);
+		pi.setActiveTools(["dispatch_agent", "track_goal"]);
 
 		_ctx.ui.setStatus("agent-team", `Team: ${activeTeamName} (${agentStates.size})`);
 		const members = Array.from(agentStates.values()).map(s => displayName(s.def.name)).join(", ");

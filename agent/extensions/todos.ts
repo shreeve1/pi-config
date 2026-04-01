@@ -65,7 +65,7 @@ const DEFAULT_TODO_SETTINGS = {
 };
 const LOCK_TTL_MS = 30 * 60 * 1000;
 
-interface TodoFrontMatter {
+export interface TodoFrontMatter {
 	id: string;
 	title: string;
 	tags: string[];
@@ -74,7 +74,7 @@ interface TodoFrontMatter {
 	assigned_to_session?: string;
 }
 
-interface TodoRecord extends TodoFrontMatter {
+export interface TodoRecord extends TodoFrontMatter {
 	body: string;
 }
 
@@ -173,7 +173,7 @@ function displayTodoId(id: string): string {
 	return formatTodoId(normalizeTodoId(id));
 }
 
-function isTodoClosed(status: string): boolean {
+export function isTodoClosed(status: string): boolean {
 	return ["closed", "done"].includes(status.toLowerCase());
 }
 
@@ -704,7 +704,7 @@ class TodoDetailOverlayComponent {
 	}
 }
 
-function getTodosDir(cwd: string): string {
+export function getTodosDir(cwd: string): string {
 	const overridePath = process.env[TODO_PATH_ENV];
 	if (overridePath && overridePath.trim()) {
 		return path.resolve(cwd, overridePath.trim());
@@ -726,7 +726,7 @@ function getTodoSettingsPath(todosDir: string): string {
 
 function normalizeTodoSettings(raw: Partial<TodoSettings>): TodoSettings {
 	const gc = raw.gc ?? DEFAULT_TODO_SETTINGS.gc;
-	const gcDays = Number.isFinite(raw.gcDays) ? raw.gcDays : DEFAULT_TODO_SETTINGS.gcDays;
+	const gcDays: number = Number.isFinite(raw.gcDays) && raw.gcDays != null ? raw.gcDays : DEFAULT_TODO_SETTINGS.gcDays;
 	return {
 		gc: Boolean(gc),
 		gcDays: Math.max(0, Math.floor(gcDays)),
@@ -781,7 +781,7 @@ async function garbageCollectTodos(todosDir: string, settings: TodoSettings): Pr
 	);
 }
 
-function getTodoPath(todosDir: string, id: string): string {
+export function getTodoPath(todosDir: string, id: string): string {
 	return path.join(todosDir, `${id}.md`);
 }
 
@@ -913,20 +913,20 @@ function serializeTodo(todo: TodoRecord): string {
 	return `${frontMatter}\n\n${trimmedBody}\n`;
 }
 
-async function ensureTodosDir(todosDir: string) {
+export async function ensureTodosDir(todosDir: string) {
 	await fs.mkdir(todosDir, { recursive: true });
 }
 
-async function readTodoFile(filePath: string, idFallback: string): Promise<TodoRecord> {
+export async function readTodoFile(filePath: string, idFallback: string): Promise<TodoRecord> {
 	const content = await fs.readFile(filePath, "utf8");
 	return parseTodoContent(content, idFallback);
 }
 
-async function writeTodoFile(filePath: string, todo: TodoRecord) {
+export async function writeTodoFile(filePath: string, todo: TodoRecord) {
 	await fs.writeFile(filePath, serializeTodo(todo), "utf8");
 }
 
-async function generateTodoId(todosDir: string): Promise<string> {
+export async function generateTodoId(todosDir: string): Promise<string> {
 	for (let attempt = 0; attempt < 10; attempt += 1) {
 		const id = crypto.randomBytes(4).toString("hex");
 		const todoPath = getTodoPath(todosDir, id);
@@ -1014,7 +1014,7 @@ async function withTodoLock<T>(
 	}
 }
 
-async function listTodos(todosDir: string): Promise<TodoFrontMatter[]> {
+export async function listTodos(todosDir: string): Promise<TodoFrontMatter[]> {
 	let entries: string[] = [];
 	try {
 		entries = await fs.readdir(todosDir);
@@ -1750,12 +1750,14 @@ export default function todosExtension(pi: ExtensionAPI) {
 				return new Text(text, 0, 0);
 			}
 
-			if (!details.todo) {
+			const singleDetails = details as { action: string; todo: TodoRecord; error?: string };
+			if (!singleDetails.todo) {
 				const text = result.content[0];
 				return new Text(text?.type === "text" ? text.text : "", 0, 0);
 			}
 
-			let text = renderTodoDetail(theme, details.todo, expanded);
+
+			let text = renderTodoDetail(theme, singleDetails.todo, expanded);
 			const actionLabel =
 				details.action === "create"
 					? "Created"
@@ -1812,9 +1814,9 @@ export default function todosExtension(pi: ExtensionAPI) {
 			}
 
 			let nextPrompt: string | null = null;
-			let rootTui: TUI | null = null;
+			let rootTui: any = null;
 			await ctx.ui.custom<void>((tui, theme, _kb, done) => {
-				rootTui = tui;
+				rootTui = tui as any;
 				let selector: TodoSelectorComponent | null = null;
 				let actionMenu: TodoActionMenuComponent | null = null;
 				let deleteConfirm: TodoDeleteConfirmComponent | null = null;
@@ -1886,7 +1888,7 @@ export default function todosExtension(pi: ExtensionAPI) {
 				const openTodoOverlay = async (record: TodoRecord): Promise<TodoOverlayAction> => {
 					const action = await ctx.ui.custom<TodoOverlayAction>(
 						(overlayTui, overlayTheme, _overlayKb, overlayDone) =>
-							new TodoDetailOverlayComponent(overlayTui, overlayTheme, record, overlayDone),
+							new TodoDetailOverlayComponent(overlayTui as any, overlayTheme, record, overlayDone),
 						{
 							overlay: true,
 							overlayOptions: { width: "80%", maxHeight: "80%", anchor: "center" },
@@ -2020,7 +2022,7 @@ export default function todosExtension(pi: ExtensionAPI) {
 				};
 
 				selector = new TodoSelectorComponent(
-					tui,
+					tui as any,
 					theme,
 					todos,
 					(todo) => {
